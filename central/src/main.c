@@ -2,6 +2,8 @@
 #include <sys/printk.h>
 #include <inttypes.h>
 
+#include <dk_buttons_and_leds.h>
+
 #include "trailer_listener/trailer_listener.h"
 
 #define SLEEP_TIME_MS 1000
@@ -17,7 +19,7 @@ uint8_t map_listner_state(uint8_t *vals, uint8_t len, enum SIGNAL signals)
     return 0;
 }
 
-int main()
+void main()
 {
 
     int err = 0;
@@ -49,5 +51,4 @@ int main()
 
         k_msleep(SLEEP_TIME_MS);
     }
-    return 0;
 }

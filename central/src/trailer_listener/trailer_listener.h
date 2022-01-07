@@ -30,11 +30,11 @@
  */
 enum SIGNAL
 {
-    RUNNING = 0,
-    REVERSE,
+    REVERSE = 0,
     BREAK,
     TURN_LEFT,
-    TURN_RIGHT
+    TURN_RIGHT,
+    RUNNING
 };
 static enum SIGNAL signals;
 
