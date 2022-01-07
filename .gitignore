@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+# Zephyr build dirs
+./central/build/
+./peripheral/build/
