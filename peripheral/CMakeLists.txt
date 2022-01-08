@@ -10,9 +10,9 @@ target_sources(app PRIVATE src/main.c)
 # Custom files and folders
 
 target_sources(app PRIVATE
-    src/sstage_service/sstage.c
+    src/sstate_service/sstate.c
     src/trailer_light/trailer_light.c
 )
 
-zephyr_library_include_directories(src/sstage_service)
+zephyr_library_include_directories(src/sstate_service)
 zephyr_library_include_directories(src/trailer_light)

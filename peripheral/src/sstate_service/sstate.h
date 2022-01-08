@@ -7,7 +7,7 @@
 #include <bluetooth/gatt.h>
 #include <bluetooth/hci.h>
 
-/** @brief UUID of the SimpleStage Service. **/
+/** @brief UUID of the SimpleState Service. **/
 #define BT_UUID_TLIGHT_SERVICE_VAL \
 	BT_UUID_128_ENCODE(0xe9ea0001, 0xe19b, 0x482d, 0x9293, 0xc7907585fc48)
 
@@ -32,4 +32,4 @@ struct bt_remote_service_cb
 /*
  * Simple stage service initiation function
  */
-int sstage_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote_cb);
+int sstate_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote_cb);

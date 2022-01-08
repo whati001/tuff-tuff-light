@@ -1,8 +1,8 @@
 
-#include "sstage.h"
+#include "sstate.h"
 
-// register logger for this file named "sstage"
-#define LOG_MODULE_NAME sstage
+// register logger for this file named "sstate"
+#define LOG_MODULE_NAME sstate
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 // redefine the proj.conf device name
@@ -62,7 +62,7 @@ void bt_ready(int err)
     LOG_INF("Bluetooth should be ready");
 }
 
-int sstage_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote_cb)
+int sstate_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote_cb)
 {
     int err;
     LOG_INF("Initializing bluetooth...");

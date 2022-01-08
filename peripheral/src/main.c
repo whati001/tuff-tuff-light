@@ -7,7 +7,7 @@
 #include <zephyr.h>
 #include <logging/log.h>
 
-#include "sstage.h"
+#include "sstate.h"
 #include "trailer_light.h"
 
 #define LOG_MODULE_NAME main
@@ -52,7 +52,7 @@ void on_disconnected(struct bt_conn *conn, uint8_t reason)
 }
 
 /*
- * callback function passed to ble sstage_service
+ * callback function passed to ble sstate_service
  * code which get executed if some data is received by the central
  */
 void on_data_received(struct bt_conn *conn, const uint8_t *const data, uint16_t len)
@@ -79,7 +79,7 @@ void main(void)
 {
 	int err = 0;
 
-	err = sstage_init(&bluetooth_callbacks, &remote_callbacks);
+	err = sstate_init(&bluetooth_callbacks, &remote_callbacks);
 	if (err)
 	{
 		LOG_ERR("Failed to initiate ble service, returned %d", err);
