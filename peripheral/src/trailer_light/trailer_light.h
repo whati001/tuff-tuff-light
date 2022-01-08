@@ -12,18 +12,18 @@
     }
 
 static const struct led_rgb color_modes[] = {
-    RGB(0x0f, 0x00, 0x00), /* normal */
     RGB(0xff, 0xff, 0xff), /* reverse */
     RGB(0xff, 0x00, 0x00), /* break */
     RGB(0xff, 0xff, 0x00), /* indicator */
+    RGB(0x0f, 0x00, 0x00), /* normal */
 };
 
 enum STATES
 {
-    RUNNING = 0,
-    REVERSE,
+    REVERSE = 0,
     BREAK,
-    TURN
+    TURN,
+    RUNNING
 };
 
 struct trailer_light
