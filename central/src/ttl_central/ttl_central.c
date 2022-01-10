@@ -20,7 +20,7 @@
 #include <logging/log.h>
 #include <dk_buttons_and_leds.h>
 
-LOG_MODULE_REGISTER(ble_central);
+LOG_MODULE_REGISTER(ttl_central);
 struct bt_gatt_write_params ttl_right_light_change_params;
 
 static void auth_cancel(struct bt_conn *conn)
@@ -362,7 +362,6 @@ int ttl_central_connect()
         LOG_ERR("Scanning failed to start (err %d)", err);
         goto cleanup;
     }
-    LOG_INF("No error code is: %d", err);
     LOG_INF("Scanning successfully started");
 
     // initiate the change params
