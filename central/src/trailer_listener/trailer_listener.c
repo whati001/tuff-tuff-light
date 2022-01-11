@@ -1,5 +1,9 @@
 #include "trailer_listener.h"
 
+#include <logging/log.h>
+
+LOG_MODULE_REGISTER(trailer_listener);
+
 // gpios from which we need to read from to get current state
 // the array position should fit the SIGNAL enum postions
 // there is no need to define an input pin for running
@@ -9,6 +13,9 @@ static const struct gpio_dt_spec gpios[] = {
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw1), gpios, {0}),
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw2), gpios, {0}),
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0})};
+
+static struct gpio_callback gpio_cb_data;
+static struct trailer_listner_interrupt_data interrupt_active;
 
 int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, enum SIGNAL signals))
 {
@@ -25,20 +32,23 @@ int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_inter
     // all the devices should share the same gpio port, thus we just need to check ones
     if (!device_is_ready(gpios[REVERSE].port))
     {
-        printk("Error: GPIO port %s is not ready\n", gpios[REVERSE].port->name);
+        LOG_ERR("GPIO port %s is not ready", gpios[REVERSE].port->name);
         err = -2;
         goto cleanup;
     }
-    printk("GPIO port is ready, configure all the pins properly.\n");
+
+    LOG_INF("GPIO port is ready, configure all the pins properly.");
     for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
     {
         err = gpio_pin_configure_dt(&gpios[i], GPIO_INPUT);
         if (err)
         {
-            printk("Error: Failed to configure gpio pin: %d\n", gpios[i].pin);
+            LOG_ERR("Failed to configure gpio pin: %d\n", gpios[i].pin);
             goto cleanup;
         }
     }
+    listener->interrupt_cb = _trailer_listener_gpio_cb;
+    listener->state_changed = 0;
 
 cleanup:
     if (err < 0)
@@ -48,7 +58,52 @@ cleanup:
     return err;
 }
 
-int trailer_listener_read_state(struct trailer_listener *listener)
+void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+    enum SIGNAL signal;
+    for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
+    {
+        if (pins == BIT(gpios[i].pin))
+        {
+            signal = i;
+        }
+    }
+    LOG_INF("Received interrupt by pin: %d which is signal: %d", gpios[signal].pin, signal);
+    if (interrupt_active.listener)
+    {
+        interrupt_active.listener->values[signal] ^= 1;
+        interrupt_active.listener->state_changed = 1;
+    }
+}
+
+int trailer_listener_register_interrupt_cb(struct trailer_listener *listener)
+{
+    int err = 0;
+    uint32_t int_bit_mask = 0;
+    LOG_INF("Start to configure interrupt for all trailer listener gpio pins");
+    for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
+    {
+        err = gpio_pin_interrupt_configure_dt(&gpios[i], GPIO_INT_EDGE_BOTH);
+        if (err)
+        {
+            LOG_ERR("Failed to configure interrupt for trailer listener pin: %d", gpios[i].pin);
+            goto cleanup;
+        }
+        LOG_DBG("Configured interrupt for gpio pin: %d", gpios[i].pin);
+        int_bit_mask |= BIT(gpios[i].pin);
+    }
+
+    gpio_init_callback(&gpio_cb_data, listener->interrupt_cb, int_bit_mask);
+    gpio_add_callback(gpios[0].port, &gpio_cb_data);
+    interrupt_active.listener = listener;
+    LOG_INF("Successfully configured all trailer listener gpio intrrupts");
+
+cleanup:
+
+    return err;
+}
+
+int trailer_listener_poll_state(struct trailer_listener *listener)
 {
     int err = 0;
     CHECK_NULL(listener, -1);
@@ -63,7 +118,7 @@ cleanup:
     return err;
 }
 
-int trailer_listener_get_mapped_state(struct trailer_listener *listener, uint8_t *state)
+int trailer_listener_get_state(struct trailer_listener *listener, uint8_t *state)
 {
     int err = 0;
     CHECK_NULL(listener, -1);
@@ -81,7 +136,7 @@ cleanup:
     return err;
 }
 
-int trailer_listener_get_values(struct trailer_listener *listener, uint8_t *values)
+int trailer_listener_get_raw(struct trailer_listener *listener, uint8_t *values)
 {
     int err = 0;
     CHECK_NULL(listener, -1);
