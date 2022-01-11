@@ -48,14 +48,9 @@ enum TTL_LIGHT_STATES
 struct trailer_listener
 {
     uint8_t values[TRAILER_LISTENER_VALUES_LEN];
+    uint8_t state_changed;
     uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8_t *rigth_state);
     void (*interrupt_cb)(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
-    uint8_t state_changed;
-};
-
-struct trailer_listner_interrupt_data
-{
-    struct trailer_listener *listener;
 };
 
 /*
@@ -89,6 +84,6 @@ int trailer_listener_get_raw(struct trailer_listener *listener, uint8_t *values)
  * Map the values to an uint8_t state, logic is based via map_internal_state cb
  * if not define, return -1
  */
-int trailer_listener_get_state(struct trailer_listener *listener, uint8_t *left_state, uint8_t* right_state);
+int trailer_listener_get_state(struct trailer_listener *listener, uint8_t *left_state, uint8_t *right_state);
 
 #endif

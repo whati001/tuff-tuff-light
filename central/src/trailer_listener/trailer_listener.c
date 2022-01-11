@@ -15,7 +15,7 @@ static const struct gpio_dt_spec gpios[] = {
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0})};
 
 static struct gpio_callback gpio_cb_data;
-static struct trailer_listner_interrupt_data interrupt_active;
+static struct trailer_listener *interrupt_listener;
 
 int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8_t *right_state))
 {
@@ -23,13 +23,15 @@ int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_inter
     CHECK_NULL(listener, -1);
 
     memset(&listener->values, 0, TRAILER_LISTENER_VALUES_LEN);
+    listener->state_changed = 0;
+    listener->interrupt_cb = NULL;
+
     listener->map_internal_state = NULL;
     if (map_internal_state)
     {
         listener->map_internal_state = map_internal_state;
     }
 
-    // all the devices should share the same gpio port, thus we just need to check ones
     if (!device_is_ready(gpios[REVERSE].port))
     {
         LOG_ERR("GPIO port %s is not ready", gpios[REVERSE].port->name);
@@ -47,8 +49,6 @@ int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_inter
             goto cleanup;
         }
     }
-    listener->interrupt_cb = _trailer_listener_gpio_cb;
-    listener->state_changed = 0;
 
 cleanup:
     if (err < 0)
@@ -60,24 +60,25 @@ cleanup:
 
 void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
-    enum GPIO_MAPPING signal;
+    if (NULL == interrupt_listener)
+    {
+        LOG_DBG("No interrupt confiugred for trailer listner, skip processing");
+        return;
+    }
+
+    uint8_t signal = 0;
     for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
     {
         if (pins == BIT(gpios[i].pin))
         {
             signal = i;
+            break;
         }
     }
+
     LOG_DBG("Received interrupt by pin: %d which is signal: %d", gpios[signal].pin, signal);
-    if (interrupt_active.listener)
-    {
-        interrupt_active.listener->values[signal] ^= 1;
-        interrupt_active.listener->state_changed = 1;
-    }
-    for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
-    {
-        LOG_INF("gpio[%d] = %d", i, interrupt_active.listener->values[i]);
-    }
+    interrupt_listener->values[signal] ^= 1;
+    interrupt_listener->state_changed = 1;
 }
 
 int trailer_listener_register_interrupt_cb(struct trailer_listener *listener)
@@ -97,9 +98,9 @@ int trailer_listener_register_interrupt_cb(struct trailer_listener *listener)
         int_bit_mask |= BIT(gpios[i].pin);
     }
 
-    gpio_init_callback(&gpio_cb_data, listener->interrupt_cb, int_bit_mask);
+    gpio_init_callback(&gpio_cb_data, _trailer_listener_gpio_cb, int_bit_mask);
     gpio_add_callback(gpios[0].port, &gpio_cb_data);
-    interrupt_active.listener = listener;
+    interrupt_listener = listener;
     LOG_INF("Successfully configured all trailer listener gpio intrrupts");
 
 cleanup:
@@ -107,16 +108,32 @@ cleanup:
     return err;
 }
 
+void _log_listener_values(struct trailer_listener *listener)
+{
+    for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
+    {
+        LOG_INF("Values gpio[%d] = %d", i, listener->values[i]);
+    }
+}
+
 int trailer_listener_poll_state(struct trailer_listener *listener)
 {
     int err = 0;
+    uint8_t value = 0;
     CHECK_NULL(listener, -1);
 
     for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
     {
-        listener->values[i] = gpio_pin_get_dt(&gpios[i]);
+        value = gpio_pin_get_dt(&gpios[i]);
+        if (value != listener->values[i])
+        {
+            listener->state_changed = 1;
+        }
+        listener->values[i] = value;
     }
     listener->values[RUNNING] = 1;
+
+    // _log_listener_values(listener);
 
 cleanup:
     return err;
