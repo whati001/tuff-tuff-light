@@ -13,10 +13,13 @@
 #define LOG_MODULE_NAME main
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
+#define SLEEP_MS_TIME 2000
+
 /*
  * Ble specific configuration and callbacks
  */
 static struct bt_conn *current_conn;
+static uint8_t state;
 
 void on_connected(struct bt_conn *conn, uint8_t err);
 void on_disconnected(struct bt_conn *conn, uint8_t reason);
@@ -57,16 +60,17 @@ void on_disconnected(struct bt_conn *conn, uint8_t reason)
  */
 void on_data_received(struct bt_conn *conn, const uint8_t *const data, uint16_t len)
 {
-	uint8_t action = *data;
-	LOG_INF("Received data on conn %p. Len: %d", (void *)conn, len);
-	LOG_INF("ActionCode: %d", action);
+	uint8_t recv = *data;
+	LOG_DBG("Received data on conn %p. Len: %d", (void *)conn, len);
+	LOG_INF("Received State: %d", recv);
 
-	if (action >= 0 && action <= 3)
+	if (recv >= 0 && recv <= 3)
 	{
-		int err = trailer_light_update(action);
+		state = recv;
+		int err = trailer_light_update(state);
 		if (err)
 		{
-			LOG_ERR("Failed to update trailer light for action id: %d\n", action);
+			LOG_ERR("Failed to update trailer light for action id: %d\n", state);
 		}
 	}
 	else
@@ -78,7 +82,7 @@ void on_data_received(struct bt_conn *conn, const uint8_t *const data, uint16_t 
 void main(void)
 {
 	int err = 0;
-
+	state = RUNNING;
 	err = sstate_init(&bluetooth_callbacks, &remote_callbacks);
 	if (err)
 	{
@@ -98,6 +102,15 @@ void main(void)
 		LOG_ERR("Failed to initiated trailer light into RUNNING state");
 		return;
 	}
-
 	LOG_INF("Started tuff tuff light peripheral successfully");
+
+	while (1)
+	{
+		k_msleep(SLEEP_MS_TIME);
+		int err = trailer_light_update(state);
+		if (err)
+		{
+			LOG_ERR("Failed to update trailer light for action id: %d\n", state);
+		}
+	}
 }

@@ -68,12 +68,16 @@ void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *c
             signal = i;
         }
     }
-    LOG_INF("Received interrupt by pin: %d which is signal: %d", gpios[signal].pin, signal);
+    LOG_DBG("Received interrupt by pin: %d which is signal: %d", gpios[signal].pin, signal);
     if (interrupt_active.listener)
     {
         interrupt_active.listener->values[signal] ^= 1;
         interrupt_active.listener->state_changed = 1;
     }
+    // for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
+    // {
+    //     LOG_INF("gpio[%d] = %d", i, interrupt_active.listener->values[i]);
+    // }
 }
 
 int trailer_listener_register_interrupt_cb(struct trailer_listener *listener)
