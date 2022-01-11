@@ -383,6 +383,7 @@ int ttl_right_sent_state(uint8_t *state)
     if (NULL == ttl_right_light)
     {
         LOG_WRN("No connection to tuff tuff light right exists, skip update");
+        err = -1;
         goto cleanup;
     }
     err = bt_gatt_write(ttl_right_light, &ttl_right_light_change_params);

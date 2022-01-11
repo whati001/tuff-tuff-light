@@ -1,6 +1,7 @@
 #ifndef TRAILER_LISTENER_H
 #define TRAILER_LISTENER_H
 
+#include <zephyr.h>
 #include <device.h>
 #include <drivers/gpio.h>
 #include <inttypes.h>
@@ -42,6 +43,12 @@ struct trailer_listener
     uint8_t values[TRAILER_LISTENER_VALUES_LEN];
     uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, enum SIGNAL signals);
     void (*interrupt_cb)(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+    uint8_t state_changed;
+};
+
+struct trailer_listner_interrupt_data
+{
+    struct trailer_listener *listener;
 };
 
 /*

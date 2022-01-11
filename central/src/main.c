@@ -8,7 +8,7 @@
 #define LOG_MODULE_NAME main
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
-#define SLEEP_TIME_MS 1000
+#define SLEEP_TIME_MS 50
 
 static struct trailer_listener listener;
 
@@ -34,7 +34,7 @@ void main()
 
     int err = 0;
     uint8_t state = 0;
-    uint8_t old_state = 0;
+
     // create a new instance for the listner
     err = trailer_listener_init(&listener, map_listner_state);
     if (err)
@@ -57,33 +57,27 @@ void main()
         return;
     }
 
-    // while (1)
-    // {
-    //     k_msleep(SLEEP_TIME_MS);
-    //     err = trailer_listener_poll_state(&listener);
-    //     if (err)
-    //     {
-    //         LOG_ERR("Failed to read trailer state, skip update");
-    //         continue;
-    //     }
-    //     err = trailer_listener_get_state(&listener, &state);
-    //     if (err)
-    //     {
-    //         LOG_ERR("Failed to read trailer state, skip update");
-    //         continue;
-    //     }
-    //     LOG_INF("Received map state: %d", state);
+    while (1)
+    {
+        k_msleep(SLEEP_TIME_MS);
+        if (listener.state_changed)
+        {
+            listener.state_changed = 0;
+            err = trailer_listener_get_state(&listener, &state);
+            if (err)
+            {
+                LOG_ERR("Failed to read trailer state, skip update");
+                continue;
+            }
+            LOG_INF("Received map state: %d", state);
 
-    //     if (old_state != state)
-    //     {
-    //         err = ttl_right_sent_state(&state);
-    //         if (err)
-    //         {
-    //             LOG_ERR("Failed to send updated state to right tuff tuff light");
-    //             continue;
-    //         }
-    //         LOG_INF("Send updated state %d to tuff tuff lights", state);
-    //         old_state = state;
-    //     }
-    // }
+            err = ttl_right_sent_state(&state);
+            if (err)
+            {
+                LOG_ERR("Failed to send updated state to right tuff tuff light");
+                continue;
+            }
+            LOG_INF("Send updated state %d to tuff tuff lights", state);
+        }
+    }
 }

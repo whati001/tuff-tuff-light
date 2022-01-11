@@ -15,7 +15,7 @@ static const struct gpio_dt_spec gpios[] = {
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(sw3), gpios, {0})};
 
 static struct gpio_callback gpio_cb_data;
-static struct trailer_listener *interrupt_active;
+static struct trailer_listner_interrupt_data interrupt_active;
 
 int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, enum SIGNAL signals))
 {
@@ -48,6 +48,7 @@ int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_inter
         }
     }
     listener->interrupt_cb = _trailer_listener_gpio_cb;
+    listener->state_changed = 0;
 
 cleanup:
     if (err < 0)
@@ -67,10 +68,11 @@ void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *c
             signal = i;
         }
     }
-    LOG_DBG("Received interrupt by pin: %d which is signal: %d", gpios[signal].pin, signal);
-    if (interrupt_active)
+    LOG_INF("Received interrupt by pin: %d which is signal: %d", gpios[signal].pin, signal);
+    if (interrupt_active.listener)
     {
-        interrupt_active->values[signal] ^= 1;
+        interrupt_active.listener->values[signal] ^= 1;
+        interrupt_active.listener->state_changed = 1;
     }
 }
 
@@ -93,7 +95,7 @@ int trailer_listener_register_interrupt_cb(struct trailer_listener *listener)
 
     gpio_init_callback(&gpio_cb_data, listener->interrupt_cb, int_bit_mask);
     gpio_add_callback(gpios[0].port, &gpio_cb_data);
-    interrupt_active = listener;
+    interrupt_active.listener = listener;
     LOG_INF("Successfully configured all trailer listener gpio intrrupts");
 
 cleanup:
