@@ -8,6 +8,8 @@
 #define LOG_MODULE_NAME main
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
+//#define GPIO_INTERRUPT 1
+
 #define SLEEP_TIME_MS 50
 
 static struct trailer_listener listener;
@@ -59,12 +61,15 @@ void main()
         return;
     }
     LOG_INF("Initiated new trailer listener instance properly");
+
+#ifdef GPIO_INTERRUPT
     err = trailer_listener_register_interrupt_cb(&listener);
     if (err)
     {
         LOG_ERR("Failed to initialize listner interrupts");
         return;
     }
+#endif
 
     err = ttl_central_connect();
     if (err)
@@ -76,6 +81,14 @@ void main()
     while (1)
     {
         k_msleep(SLEEP_TIME_MS);
+#ifndef GPIO_INTERRUPT
+        err = trailer_listener_poll_state(&listener);
+        if (err)
+        {
+            LOG_ERR("Failed to poll current trailer listener state");
+            continue;
+        }
+#endif
         if (listener.state_changed)
         {
             listener.state_changed = 0;
