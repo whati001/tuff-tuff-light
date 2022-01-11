@@ -17,7 +17,7 @@ static const struct gpio_dt_spec gpios[] = {
 static struct gpio_callback gpio_cb_data;
 static struct trailer_listner_interrupt_data interrupt_active;
 
-int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, enum SIGNAL signals))
+int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8_t *right_state))
 {
     int err = 0;
     CHECK_NULL(listener, -1);
@@ -60,7 +60,7 @@ cleanup:
 
 void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
-    enum SIGNAL signal;
+    enum GPIO_MAPPING signal;
     for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
     {
         if (pins == BIT(gpios[i].pin))
@@ -74,10 +74,10 @@ void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *c
         interrupt_active.listener->values[signal] ^= 1;
         interrupt_active.listener->state_changed = 1;
     }
-    // for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
-    // {
-    //     LOG_INF("gpio[%d] = %d", i, interrupt_active.listener->values[i]);
-    // }
+    for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
+    {
+        LOG_INF("gpio[%d] = %d", i, interrupt_active.listener->values[i]);
+    }
 }
 
 int trailer_listener_register_interrupt_cb(struct trailer_listener *listener)
@@ -122,21 +122,21 @@ cleanup:
     return err;
 }
 
-int trailer_listener_get_state(struct trailer_listener *listener, uint8_t *state)
+int trailer_listener_get_state(struct trailer_listener *listener, uint8_t *left_state, uint8_t *right_state)
 {
     int err = 0;
     CHECK_NULL(listener, -1);
 
     if (listener->map_internal_state)
     {
-        *state = listener->map_internal_state(listener->values, TRAILER_LISTENER_VALUES_LEN, signals);
+        err = listener->map_internal_state(listener->values, TRAILER_LISTENER_VALUES_LEN, left_state, right_state);
     }
     else
     {
-        *state = -1;
+        err = -1;
     }
-
 cleanup:
+
     return err;
 }
 
