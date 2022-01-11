@@ -11,22 +11,38 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define SLEEP_TIME_MS 50
 
 static struct trailer_listener listener;
+static uint8_t left_state = RUNNING;
+static uint8_t right_state = RUNNING;
 
-uint8_t map_listner_state(uint8_t *vals, uint8_t len, enum SIGNAL signals)
+uint8_t map_listner_state(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8_t *right_state)
 {
     if (vals[BREAK])
     {
-        return BREAK;
+        *left_state = TTL_LIGHT_BREAK;
+        *right_state = TTL_LIGHT_BREAK;
     }
-    if (vals[TURN_LEFT] || vals[TURN_RIGHT])
+    else if (vals[TURN_LEFT])
     {
-        return TURN_LEFT;
+        *left_state = TTL_LIGHT_TURN;
+        *right_state = TTL_LIGHT_RUNNING;
     }
-    if (vals[REVERSE])
+    else if (vals[TURN_RIGHT])
     {
-        return REVERSE;
+        *left_state = TTL_LIGHT_RUNNING;
+        *right_state = TTL_LIGHT_TURN;
     }
-    return RUNNING - 1;
+    else if (vals[REVERSE])
+    {
+        *left_state = TTL_LIGHT_REVERSE;
+        *right_state = TTL_LIGHT_REVERSE;
+    }
+    else
+    {
+        *left_state = TTL_LIGHT_RUNNING;
+        *right_state = TTL_LIGHT_RUNNING;
+    }
+
+    return 0;
 }
 
 void main()
@@ -63,7 +79,8 @@ void main()
         if (listener.state_changed)
         {
             listener.state_changed = 0;
-            err = trailer_listener_get_state(&listener, &state);
+
+            err = trailer_listener_get_state(&listener, &left_state, &right_state);
             if (err)
             {
                 LOG_ERR("Failed to read trailer state, skip update");
@@ -71,7 +88,13 @@ void main()
             }
             LOG_INF("Received map state: %d", state);
 
-            err = ttl_right_sent_state(&state);
+            err = ttl_right_sent_state(&right_state);
+            if (err)
+            {
+                LOG_ERR("Failed to send updated state to right tuff tuff light");
+                continue;
+            }
+            err = ttl_left_sent_state(&left_state);
             if (err)
             {
                 LOG_ERR("Failed to send updated state to right tuff tuff light");

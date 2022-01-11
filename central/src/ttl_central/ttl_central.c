@@ -21,7 +21,13 @@
 #include <dk_buttons_and_leds.h>
 
 LOG_MODULE_REGISTER(ttl_central);
-struct bt_gatt_write_params ttl_right_light_change_params;
+
+static uint8_t volatile conn_count;
+static struct bt_conn *ttl_right_light;
+static struct bt_conn *ttl_left_light;
+
+static uint16_t ttl_light_change_handle;
+struct bt_gatt_write_params ttl_light_change_params;
 
 static void auth_cancel(struct bt_conn *conn)
 {
@@ -113,7 +119,7 @@ static void discovery_complete(struct bt_gatt_dm *dm,
         // return -EINVAL;
         return;
     }
-    ttl_right_light_change_handle = gatt_desc->handle;
+    ttl_light_change_handle = gatt_desc->handle;
     LOG_INF("Found tlight change characteristic.");
 
     bt_gatt_dm_data_release(dm);
@@ -143,17 +149,11 @@ static void gatt_discover(struct bt_conn *conn)
 {
     int err;
 
-    if (conn != ttl_right_light)
-    {
-        return;
-    }
-
     LOG_INF("Started to discover gatt server table");
     err = bt_gatt_dm_start(conn,
                            BT_UUID_SSTATE_SERVICE,
                            &discovery_cb,
                            NULL);
-    //    &nus_client);
     if (err)
     {
         LOG_ERR("could not start the discovery procedure, error "
@@ -202,7 +202,7 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
         return;
     }
 
-    LOG_INF("Connected: %s", log_strdup(addr));
+    LOG_INF("Connected from cb connected: %s", log_strdup(addr));
 
     // prepare the parameters for MTU exchange
     static struct bt_gatt_exchange_params exchange_params;
@@ -214,6 +214,17 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
         LOG_WRN("MTU exchange failed (err %d)", err);
     }
 
+    if (++conn_count == 1)
+    {
+        LOG_INF("Connected with right tuff tuff light");
+        ttl_right_light = bt_conn_ref(conn);
+    }
+    else
+    {
+        LOG_INF("Connected with left tuff tuff light");
+        ttl_left_light = bt_conn_ref(conn);
+    }
+
     gatt_discover(conn);
 
     err = bt_scan_stop();
@@ -222,6 +233,17 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
         LOG_ERR("Stop LE scan failed (err %d)", err);
     }
     LOG_INF("Stopped scanning");
+
+    if (conn_count < 2)
+    {
+        // start scanning and connect if a suiteable is found
+        err = bt_scan_start(BT_SCAN_TYPE_SCAN_ACTIVE);
+        if (err)
+        {
+            LOG_ERR("Scanning failed to start (err %d)", err);
+        }
+        LOG_INF("Scanning successfully started");
+    }
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
@@ -233,11 +255,6 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 
     LOG_INF("Disconnected: %s (reason %u)", log_strdup(addr),
             reason);
-
-    if (ttl_right_light != conn)
-    {
-        return;
-    }
 
     bt_conn_unref(ttl_right_light);
     ttl_right_light = NULL;
@@ -269,13 +286,13 @@ static void scan_filter_match(struct bt_scan_device_info *device_info,
 
 static void scan_connecting_error(struct bt_scan_device_info *device_info)
 {
-    LOG_WRN("Connecting failed");
+    LOG_WRN("Connection failed signal from scan_connected");
 }
 
 static void scan_connecting(struct bt_scan_device_info *device_info,
                             struct bt_conn *conn)
 {
-    ttl_right_light = bt_conn_ref(conn);
+    LOG_INF("Connected signal from scan_connected");
 }
 
 BT_SCAN_CB_INIT(scan_cb, scan_filter_match, NULL,
@@ -319,8 +336,8 @@ static void on_sent(struct bt_conn *conn, uint8_t err,
 int ttl_central_connect()
 {
     int err = 0;
-    ttl_right_light_change_handle = 0;
-    ttl_left_light_change_handle = 0;
+    conn_count = 0;
+    ttl_light_change_handle = 0;
 
     LOG_INF("Start to connect to tuff tuff light device");
 
@@ -365,9 +382,9 @@ int ttl_central_connect()
     LOG_INF("Scanning successfully started");
 
     // initiate the change params
-    ttl_right_light_change_params.func = on_sent;
-    ttl_right_light_change_params.offset = 0;
-    ttl_right_light_change_params.length = 1;
+    ttl_light_change_params.func = on_sent;
+    ttl_light_change_params.offset = 0;
+    ttl_light_change_params.length = 1;
 
 cleanup:
     return err;
@@ -377,8 +394,8 @@ int ttl_right_sent_state(uint8_t *state)
 {
     int err = 0;
 
-    ttl_right_light_change_params.handle = ttl_right_light_change_handle;
-    ttl_right_light_change_params.data = state;
+    ttl_light_change_params.handle = ttl_light_change_handle;
+    ttl_light_change_params.data = state;
 
     if (NULL == ttl_right_light)
     {
@@ -386,11 +403,12 @@ int ttl_right_sent_state(uint8_t *state)
         err = -1;
         goto cleanup;
     }
-    err = bt_gatt_write(ttl_right_light, &ttl_right_light_change_params);
+    err = bt_gatt_write(ttl_right_light, &ttl_light_change_params);
     if (err)
     {
         LOG_ERR("Failed to send data via ble");
     }
+    LOG_INF("Send state %d to right tuff tuff light", *state);
 
 cleanup:
     return err;
@@ -399,6 +417,22 @@ cleanup:
 int ttl_left_sent_state(uint8_t *state)
 {
     int err = 0;
+
+    ttl_light_change_params.handle = ttl_light_change_handle;
+    ttl_light_change_params.data = state;
+
+    if (NULL == ttl_right_light)
+    {
+        LOG_WRN("No connection to tuff tuff light right exists, skip update");
+        err = -1;
+        goto cleanup;
+    }
+    err = bt_gatt_write(ttl_left_light, &ttl_light_change_params);
+    if (err)
+    {
+        LOG_ERR("Failed to send data via ble");
+    }
+    LOG_INF("Send state %d to left tuff tuff light", *state);
 
 cleanup:
     return err;

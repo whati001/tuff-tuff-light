@@ -28,7 +28,7 @@
  *  in addition, we will read them
  *  exactly within this order from the GPIO port
  */
-enum SIGNAL
+enum GPIO_MAPPING
 {
     REVERSE = 0,
     BREAK,
@@ -36,12 +36,19 @@ enum SIGNAL
     TURN_RIGHT,
     RUNNING
 };
-static enum SIGNAL signals;
+
+enum TTL_LIGHT_STATES
+{
+    TTL_LIGHT_REVERSE = 0,
+    TTL_LIGHT_BREAK,
+    TTL_LIGHT_TURN,
+    TTL_LIGHT_RUNNING
+};
 
 struct trailer_listener
 {
     uint8_t values[TRAILER_LISTENER_VALUES_LEN];
-    uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, enum SIGNAL signals);
+    uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8_t *rigth_state);
     void (*interrupt_cb)(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
     uint8_t state_changed;
 };
@@ -54,7 +61,7 @@ struct trailer_listner_interrupt_data
 /*
  * Init something
  */
-int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, enum SIGNAL signals));
+int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8_t *rigth_state));
 
 /*
  * Register interrupt callbacks for gpio pins
@@ -82,6 +89,6 @@ int trailer_listener_get_raw(struct trailer_listener *listener, uint8_t *values)
  * Map the values to an uint8_t state, logic is based via map_internal_state cb
  * if not define, return -1
  */
-int trailer_listener_get_state(struct trailer_listener *listener, uint8_t *state);
+int trailer_listener_get_state(struct trailer_listener *listener, uint8_t *left_state, uint8_t* right_state);
 
 #endif

@@ -30,11 +30,6 @@
 #define BT_UUID_SSTATE_SERVICE BT_UUID_DECLARE_128(BT_UUID_SSTATE_SERVICE_VAL)
 #define BT_UUID_SSTATE_CHANGE_CHRC BT_UUID_DECLARE_128(BT_UUID_SSTATE_CHANGE_CHRC_VAL)
 
-static struct bt_conn *ttl_right_light;
-static uint16_t ttl_right_light_change_handle;
-
-static struct bt_conn *ttl_left_light;
-static uint16_t ttl_left_light_change_handle;
 // struct bt_gatt_write_params ttl_left_light_change_params;
 
 int ttl_central_connect();
