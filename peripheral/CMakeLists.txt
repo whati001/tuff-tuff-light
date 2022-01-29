@@ -14,5 +14,4 @@ target_sources(app PRIVATE
     src/trailer_light/trailer_light.c
 )
 
-zephyr_library_include_directories(src/sstate_service)
-zephyr_library_include_directories(src/trailer_light)
+zephyr_library_include_directories(include)

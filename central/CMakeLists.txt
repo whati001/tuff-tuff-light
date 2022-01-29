@@ -14,5 +14,4 @@ target_sources(app PRIVATE
     src/ttl_central/ttl_central.c
 )
 
-zephyr_library_include_directories(src/trailer_listener)
-zephyr_library_include_directories(src/ttl_central)
+zephyr_library_include_directories(include)

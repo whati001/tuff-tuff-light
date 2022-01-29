@@ -1,0 +1,60 @@
+{
+    "env": {
+        "gnuarmemb": "/opt/gnuarmemb/9-2019-q4-major/",
+        "ncs": "/home/akarner/ncs/"
+    },
+    "configurations": [
+        {
+            "name": "ZephyrRTOS",
+            "includePath": [
+                "${workspaceFolder}/central/include/",
+                "${workspaceFolder}/central/src",
+                "${workspaceFolder}/central/build/zephyr/include/generated",
+                "${workspaceFolder}/peripheral/include/",
+                "${workspaceFolder}/peripheral/src",
+                "${workspaceFolder}/peripheral/build/zephyr/include/generated",
+                "${ncs}zephyr/include",
+                "${ncs}zephyr/soc/arm/nordic_nrf/nrf52",
+                "${ncs}modules/hal/cmsis/CMSIS/Core/Include",
+                "${ncs}modules/hal/libmetal/libmetal/lib",
+                "${ncs}modules/hal/nordic/drivers/nrf_802154/**",
+                "${ncs}modules/hal/nordic/nrfx/**",
+                "${ncs}modules/hal/st/**",
+                "${ncs}modules/debug/segger/SEGGER",
+                "${ncs}modules/debug/segger/Config",
+                "${ncs}zephyr/modules/segger",
+                "${ncs}nrf/include/**",
+                ""
+            ],
+            "defines": [
+                "KERNEL",
+                "_FORTIFY_SOURCE=2",
+                "__PROGRAM_START",
+                "__ZEPHYR__=1",
+                ""
+            ],
+            "cStandard": "c99",
+            "forcedInclude": [
+                "${workspaceFolder}/central/build/zephyr/include/generated/autoconf.h",
+                "${workspaceFolder}/peripheral/build/zephyr/include/generated/autoconf.h",
+                "${ncs}zephyr/include/toolchain/zephyr_stdint.h",
+                ""
+            ],
+            "compilerPath": "${gnuarmemb}/bin/arm-none-eabi-gcc",
+            "compilerArgs": [
+                "-mcpu=cortex-m4",
+                "-mthumb",
+                "-mabi=aapcs",
+                "-mfp16-format=ieee",
+                "-isystem",
+                "${ncs}zephyr/lib/libc/minimal/include",
+                "-isystem",
+                "/${gnuarmemb}/lib/gcc/arm-none-eabi/9.2.1/include",
+                "-isystem",
+                "${gnuarmemb}/lib/gcc/arm-none-eabi/9.2.1/include-fixed",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}
