@@ -26,6 +26,7 @@ enum STATES
     DRIVE
 };
 #define DEF_STATE DRIVE
+#define NO_HOST_STATE DEF_STATE
 
 struct trailer_light
 {

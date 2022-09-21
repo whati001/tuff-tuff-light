@@ -13,10 +13,13 @@
 #define LOG_MODULE_NAME main
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
-#define SLEEP_MS_TIME 2000
+// this should be half of the host transmission speed
+// furthermore, if the connection to the host, it does twice of this time to output the NO_HOST_STATE
+#define SLEEP_MS_TIME 100
 
-// current state of the trailer-light object
+// current state and marker if the value was updated used by the trailer-light object
 static uint8_t tl_state = DRIVE;
+static uint8_t tl_update = 0;
 
 // active bluetooth connection if established
 static struct bt_conn *current_conn;
@@ -69,7 +72,10 @@ void on_data_received(struct bt_conn *conn, const uint8_t *const data, uint16_t 
 
 	if (recv >= 0 && recv <= 3)
 	{
+		// update the state and marker value
 		tl_state = recv;
+		tl_update = 1;
+
 		int err = trailer_light_update(tl_state);
 		if (err)
 		{
@@ -105,22 +111,25 @@ void main(void)
 	}
 	LOG_INF("Finished to initialize trailer light interface");
 
-	// TODO: move this into the init phase -> set to the default value DRIVE
-	// err = trailer_light_update(DRIVE);
-	// if (err)
-	// {
-	// 	LOG_ERR("Failed to initiated trailer light into DRIVE state");
-	// 	return;
-	// }
-	// LOG_INF("Started tuff tuff light peripheral successfully");
-
+	// TODO: maybe it's a better idea to use a timer instead of this loop
+	// the idea is, that the host updates the current state twice as fast as the
+	// peripheral updates the lights, hence the tl_update should be never 0 and
+	// always tl_state should always hold the current status.
+	// if no update was received from the host, the NO_HOSTE_STATE will be shown
 	while (1)
 	{
 		k_msleep(SLEEP_MS_TIME);
+		if (0 == tl_update)
+		{
+			tl_state = NO_HOST_STATE;
+			LOG_WRN("No update received from host, set state to NO_HOST_STATE");
+		}
+
+		tl_update = 0;
 		int err = trailer_light_update(tl_state);
 		if (err)
 		{
-			LOG_ERR("Failed to update trailer light for action id: %d", tl_state);
+			LOG_ERR("Failed to update trailer light to new state: %d", tl_state);
 		}
 	}
 }
