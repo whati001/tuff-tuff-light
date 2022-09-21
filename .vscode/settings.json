@@ -2,9 +2,8 @@
     "nrf-connect.topdir": "/home/akarner/ncs/",
     "nrf-connect.toolchain.path": "PATH",
     "nrf-connect.applications": [
-        "${workspaceFolder}/tuff-tuff-light/central",
-        "${workspaceFolder}/tuff-tuff-light/peripheral",
-        "${workspaceFolder}/confusion"
+        "${workspaceFolder}/central",
+        "${workspaceFolder}/peripheral"
     ],
     "files.associations": {
         "zephyr.h": "c",
@@ -52,7 +51,8 @@
         "gatt.h": "c",
         "settings.h": "c",
         "nus.h": "c",
-        "nus_client.h": "c"
+        "nus_client.h": "c",
+        "errno.h": "c"
     },
     "cmake.configureOnOpen": true
 }

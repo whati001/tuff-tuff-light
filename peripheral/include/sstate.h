@@ -22,7 +22,6 @@
  * @brief struct for internal ble service actions
  * because the service only needs to react on received data a single callback function is needed
  * this function will be passed from the main/app code to react accordingly to the received data
- *
  */
 struct bt_remote_service_cb
 {

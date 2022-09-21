@@ -1,0 +1,7 @@
+{
+    "nrf-connect.applications": [
+        "${workspaceFolder}"
+    ],
+    "nrf-connect.topdir": "/home/akarner/ncs",
+    "nrf-connect.toolchain.path": "/home/akarner/ncs"
+}

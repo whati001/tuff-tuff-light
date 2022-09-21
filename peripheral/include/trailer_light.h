@@ -23,8 +23,9 @@ enum STATES
     REVERSE = 0,
     BREAK,
     TURN,
-    RUNNING
+    DRIVE
 };
+#define DEF_STATE DRIVE
 
 struct trailer_light
 {

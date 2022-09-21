@@ -1,4 +1,3 @@
-
 #include "sstate.h"
 
 // register logger for this file named "sstate"
@@ -23,7 +22,6 @@ static const struct bt_data sd[] = {
 };
 
 /* Declarations */
-
 static ssize_t on_write(struct bt_conn *conn, const struct bt_gatt_attr *attr, const void *buf, uint16_t len, uint16_t offset, uint8_t flags);
 
 // define ble service, only data receive is needed
@@ -34,8 +32,7 @@ BT_GATT_SERVICE_DEFINE(remote_srv,
                                               BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
                                               NULL, on_write, NULL), );
 
-/* Callbacks */
-
+// write callback of the BT_UUID_TLIGHT_CHANGE_CHRC GATT characteristic
 static ssize_t on_write(struct bt_conn *conn,
                         const struct bt_gatt_attr *attr,
                         const void *buf,
@@ -43,9 +40,7 @@ static ssize_t on_write(struct bt_conn *conn,
                         uint16_t offset,
                         uint8_t flags)
 {
-    LOG_INF("Received data, handle %d, conn %p",
-            attr->handle, (void *)conn);
-
+    LOG_INF("BLE interface received data for handle %d on connection %p", attr->handle, (void *)conn);
     if (remote_callbacks.data_received)
     {
         remote_callbacks.data_received(conn, buf, len);
@@ -53,19 +48,10 @@ static ssize_t on_write(struct bt_conn *conn,
     return len;
 }
 
-void bt_ready(int err)
-{
-    if (err)
-    {
-        LOG_ERR("bt_ready returned %d", err);
-    }
-    LOG_INF("Bluetooth should be ready");
-}
-
 int sstate_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote_cb)
 {
     int err;
-    LOG_INF("Initializing bluetooth...");
+    LOG_INF("Trailer light starts initiating the ble interface");
 
     if (bt_cb == NULL || remote_cb == NULL)
     {
@@ -76,20 +62,19 @@ int sstate_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote_cb
     bt_conn_cb_register(bt_cb);
     // register service specific callbacks
     remote_callbacks.data_received = remote_cb->data_received;
+    LOG_INF("BLE callbacks registered properly");
 
-    // enable bt_enable and execute callback bt_ready afterwards
-    err = bt_enable(bt_ready);
+    // enable bt_enable, pass NULL calls the function synchronously
+    LOG_INF("BLE interface will start synchronously now");
+    err = bt_enable(NULL);
     if (err)
     {
         LOG_ERR("bt_enable returned %d", err);
         return err;
     }
 
-    // on nrf5340dk, we need to wait otherwise we try to advertise before the bt stack is ready
-    LOG_INF("Wait for 1 seconds");
-    k_sleep(K_SECONDS(1));
-
     // start advertising, we pass the ad -> advertise data and sd -> scan req data
+    LOG_INF("Start to advertise custom trailer light GATT");
     err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
     if (err)
     {
