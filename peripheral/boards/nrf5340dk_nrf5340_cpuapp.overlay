@@ -32,13 +32,16 @@
 		reg = <0>; /* ignored, but necessary for SPI bindings */
 		spi-max-frequency = <SPI_FREQ>;
 
-		/* WS2812 */
+		/* WS2812/SK6812 */
 		chain-length = <PIXEL_COUNT>;
 		color-mapping = <LED_COLOR_ID_GREEN
 				 LED_COLOR_ID_RED
-				 LED_COLOR_ID_BLUE>;
+				 LED_COLOR_ID_BLUE
+				 LED_COLOR_ID_WHITE>;
 		spi-one-frame = <ONE_FRAME>;
 		spi-zero-frame = <ZERO_FRAME>;
+
+		// has-white-channel = <1>;
 	};
 };
 

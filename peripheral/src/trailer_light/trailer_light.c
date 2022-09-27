@@ -38,7 +38,7 @@ int trailer_light_update(enum STATES state)
         memcpy(&pixels[idx], &color_modes[state_value], sizeof(struct led_rgb));
     }
 
-    // err = led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
+    err = led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
     if (err)
     {
         LOG_ERR("Failed to update led strip");

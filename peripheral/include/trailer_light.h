@@ -6,16 +6,16 @@
 #include <drivers/led_strip.h>
 
 // define led strip
-#define RGB(_r, _g, _b)                 \
-    {                                   \
-        .r = (_r), .g = (_g), .b = (_b) \
+#define RGBW(_r, _g, _b, _w)                        \
+    {                                              \
+        .r = (_r), .g = (_g), .b = (_b), .w = (_w) \
     }
 
 static const struct led_rgb color_modes[] = {
-    RGB(0xff, 0xff, 0xff), /* reverse */
-    RGB(0xff, 0x00, 0x00), /* break */
-    RGB(0xff, 0xff, 0x00), /* indicator */
-    RGB(0x0f, 0x00, 0x00), /* normal */
+    RGBW(0x00, 0x00, 0x00, 0xff), /* reverse */
+    RGBW(0xff, 0x00, 0x00, 0x00), /* break */
+    RGBW(0xff, 0xff, 0x00, 0x00), /* indicator */
+    RGBW(0x40, 0x00, 0x00, 0x00), /* normal */
 };
 
 enum STATES

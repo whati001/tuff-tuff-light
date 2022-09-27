@@ -8,9 +8,9 @@
 #define LOG_MODULE_NAME main
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
-//#define GPIO_INTERRUPT 1
+#define GPIO_INTERRUPT 1
 
-#define SLEEP_TIME_MS 50
+#define SLEEP_TIME_MS 100
 
 static struct trailer_listener listener;
 static uint8_t left_state = RUNNING;
@@ -47,11 +47,50 @@ uint8_t map_listner_state(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8
     return 0;
 }
 
+void loop()
+{
+    int err = 0;
+    uint8_t state = 0;
+
+    while (1)
+    {
+        k_msleep(SLEEP_TIME_MS);
+#ifndef GPIO_INTERRUPT
+        err = trailer_listener_poll_state(&listener);
+        if (err)
+        {
+            LOG_ERR("Failed to poll current trailer listener state");
+            continue;
+        }
+#endif
+        err = trailer_listener_get_state(&listener, &left_state, &right_state);
+        if (err)
+        {
+            LOG_ERR("Failed to read trailer state, skip update");
+            continue;
+        }
+        LOG_INF("Received map state: %d", state);
+
+        err = ttl_right_sent_state(&right_state);
+        if (err)
+        {
+            LOG_ERR("Failed to send updated state to right tuff tuff light");
+            continue;
+        }
+        // err = ttl_left_sent_state(&left_state);
+        // if (err)
+        // {
+        // LOG_ERR("Failed to send updated state to left tuff tuff light");
+        // continue;
+        // }
+        LOG_INF("Send updated state %d to tuff tuff lights", state);
+    }
+}
+
 void main()
 {
 
     int err = 0;
-    uint8_t state = 0;
 
     // create a new instance for the listner
     err = trailer_listener_init(&listener, map_listner_state);
@@ -78,42 +117,8 @@ void main()
         return;
     }
 
-    while (1)
-    {
-        k_msleep(SLEEP_TIME_MS);
-#ifndef GPIO_INTERRUPT
-        err = trailer_listener_poll_state(&listener);
-        if (err)
-        {
-            LOG_ERR("Failed to poll current trailer listener state");
-            continue;
-        }
-#endif
-        if (listener.state_changed)
-        {
-            listener.state_changed = 0;
+    printk("Let's wait for ble connection");
+    k_msleep(5000);
 
-            err = trailer_listener_get_state(&listener, &left_state, &right_state);
-            if (err)
-            {
-                LOG_ERR("Failed to read trailer state, skip update");
-                continue;
-            }
-            LOG_INF("Received map state: %d", state);
-
-            err = ttl_right_sent_state(&right_state);
-            if (err)
-            {
-                LOG_ERR("Failed to send updated state to right tuff tuff light");
-                continue;
-            }
-            err = ttl_left_sent_state(&left_state);
-            if (err)
-            {
-                LOG_ERR("Failed to send updated state to right tuff tuff light");
-                continue;
-            }
-            LOG_INF("Send updated state %d to tuff tuff lights", state);
-        }
-    }
+    loop();
 }

@@ -234,16 +234,16 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
     }
     LOG_INF("Stopped scanning");
 
-    if (conn_count < 2)
-    {
-        // start scanning and connect if a suiteable is found
-        err = bt_scan_start(BT_SCAN_TYPE_SCAN_ACTIVE);
-        if (err)
-        {
-            LOG_ERR("Scanning failed to start (err %d)", err);
-        }
-        LOG_INF("Scanning successfully started");
-    }
+    // if (conn_count < 2)
+    // {
+    //     // start scanning and connect if a suiteable is found
+    //     err = bt_scan_start(BT_SCAN_TYPE_SCAN_ACTIVE);
+    //     if (err)
+    //     {
+    //         LOG_ERR("Scanning failed to start (err %d)", err);
+    //     }
+    //     LOG_INF("Scanning successfully started");
+    // }
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
@@ -423,7 +423,7 @@ int ttl_left_sent_state(uint8_t *state)
 
     if (NULL == ttl_right_light)
     {
-        LOG_WRN("No connection to tuff tuff light right exists, skip update");
+        LOG_WRN("No connection to tuff tuff light left exists, skip update");
         err = -1;
         goto cleanup;
     }

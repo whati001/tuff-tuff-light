@@ -48,7 +48,6 @@ enum TTL_LIGHT_STATES
 struct trailer_listener
 {
     uint8_t values[TRAILER_LISTENER_VALUES_LEN];
-    uint8_t state_changed;
     uint8_t (*map_internal_state)(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8_t *rigth_state);
     void (*interrupt_cb)(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
 };

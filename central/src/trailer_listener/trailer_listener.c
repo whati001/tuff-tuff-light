@@ -23,7 +23,6 @@ int trailer_listener_init(struct trailer_listener *listener, uint8_t (*map_inter
     CHECK_NULL(listener, -1);
 
     memset(&listener->values, 0, TRAILER_LISTENER_VALUES_LEN);
-    listener->state_changed = 0;
     listener->interrupt_cb = NULL;
 
     listener->map_internal_state = NULL;
@@ -65,7 +64,9 @@ void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *c
         LOG_DBG("No interrupt confiugred for trailer listner, skip processing");
         return;
     }
-
+    // if an interrupt occurs, we poll the current state
+    trailer_listener_poll_state(interrupt_listener);
+    /*
     uint8_t signal = 0;
     for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
     {
@@ -78,7 +79,7 @@ void _trailer_listener_gpio_cb(const struct device *dev, struct gpio_callback *c
 
     LOG_DBG("Received interrupt by pin: %d which is signal: %d", gpios[signal].pin, signal);
     interrupt_listener->values[signal] ^= 1;
-    interrupt_listener->state_changed = 1;
+    */
 }
 
 int trailer_listener_register_interrupt_cb(struct trailer_listener *listener)
@@ -125,15 +126,11 @@ int trailer_listener_poll_state(struct trailer_listener *listener)
     for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++)
     {
         value = gpio_pin_get_dt(&gpios[i]);
-        if (value != listener->values[i])
-        {
-            listener->state_changed = 1;
-        }
         listener->values[i] = value;
     }
     listener->values[RUNNING] = 1;
 
-    // _log_listener_values(listener);
+    _log_listener_values(listener);
 
 cleanup:
     return err;

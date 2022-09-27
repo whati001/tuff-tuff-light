@@ -6,6 +6,8 @@ Hello World
 Overview
 ********
 
+You need to adjust the zephyr/led_strip code to support RGBW -> simply add a .w to the struct and use the pixel value in the switch
+
 A simple sample that can be used with any :ref:`supported board <boards>` and
 prints "Hello World" to the console.
 
