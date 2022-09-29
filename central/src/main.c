@@ -77,12 +77,12 @@ void loop()
             LOG_ERR("Failed to send updated state to right tuff tuff light");
             continue;
         }
-        // err = ttl_left_sent_state(&left_state);
-        // if (err)
-        // {
-        // LOG_ERR("Failed to send updated state to left tuff tuff light");
-        // continue;
-        // }
+        err = ttl_left_sent_state(&left_state);
+        if (err)
+        {
+            LOG_ERR("Failed to send updated state to left tuff tuff light");
+            continue;
+        }
         LOG_INF("Send updated state %d to tuff tuff lights", state);
     }
 }
