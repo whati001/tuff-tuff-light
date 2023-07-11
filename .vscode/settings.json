@@ -52,7 +52,10 @@
         "settings.h": "c",
         "nus.h": "c",
         "nus_client.h": "c",
-        "errno.h": "c"
+        "errno.h": "c",
+        "iso.h": "c",
+        "ble.h": "c",
+        "ttf.h": "c"
     },
     "cmake.configureOnOpen": true
 }
