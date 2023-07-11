@@ -6,6 +6,6 @@
 #define TTF_OK (0)
 #define TTF_ERR (-1)
 
-typedef uint8_t ttf_state_t;
+typedef uint32_t ttf_state_t;
 
 #endif

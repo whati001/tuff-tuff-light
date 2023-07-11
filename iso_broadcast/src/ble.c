@@ -4,9 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/logging/log.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/iso.h>
 #include <zephyr/sys/byteorder.h>
+
+#include "ttf.h"
+
+LOG_MODULE_REGISTER(ttf_ble, LOG_LEVEL_INF);
 
 #define BUF_ALLOC_TIMEOUT (10)						 /* milliseconds */
 #define BIG_TERMINATE_TIMEOUT_US (60 * USEC_PER_SEC) /* microseconds */
@@ -21,23 +26,27 @@ static K_SEM_DEFINE(sem_big_term, 0, 1);
 static K_SEM_DEFINE(sem_iso_data, CONFIG_BT_ISO_TX_BUF_COUNT,
 					CONFIG_BT_ISO_TX_BUF_COUNT);
 
-#define INITIAL_TIMEOUT_COUNTER (BIG_TERMINATE_TIMEOUT_US / BIG_SDU_INTERVAL_US)
-
+static uint8_t running;
 static uint16_t seq_num;
+static ttf_state_t ttf_state;
+static K_SEM_DEFINE(sem_ttf_state, 1, 1);
+static uint8_t iso_data[sizeof(ttf_state)] = {0};
+
+// ttf ble thread objects
+#define TTF_BLE_STACK_SIZE (2048)
+static K_KERNEL_STACK_DEFINE(ttf_ble_thread_stack, TTF_BLE_STACK_SIZE);
+static struct k_thread ttf_ble_thread_data;
 
 static void iso_connected(struct bt_iso_chan *chan)
 {
-	printk("ISO Channel %p connected\n", chan);
-
+	LOG_INF("ISO Channel %p connected", chan);
 	seq_num = 0U;
-
 	k_sem_give(&sem_big_cmplt);
 }
 
 static void iso_disconnected(struct bt_iso_chan *chan, uint8_t reason)
 {
-	printk("ISO Channel %p disconnected with reason 0x%02x\n",
-		   chan, reason);
+	LOG_INF("ISO Channel %p disconnected with reason 0x%02x", chan, reason);
 	k_sem_give(&sem_big_term);
 }
 
@@ -79,76 +88,76 @@ static struct bt_iso_big_create_param big_create_param = {
 	.framing = 0,					 /* 0 - unframed, 1 - framed */
 };
 
-int ttf_ble_init()
+static int ttf_ble_enable()
 {
 	struct bt_le_ext_adv *adv;
 	struct bt_iso_big *big;
 	int err;
 
-	uint32_t iso_send_count = 0;
-	uint8_t iso_data[sizeof(iso_send_count)] = {0};
-
-	printk("Starting ISO Broadcast Demo\n");
+	LOG_INF("Starting to initiate BLE stack for TTF-Light");
 
 	/* Initialize the Bluetooth Subsystem */
 	err = bt_enable(NULL);
 	if (err)
 	{
-		printk("Bluetooth init failed (err %d)\n", err);
-		return 0;
+		LOG_ERR("Bluetooth init failed (err %d)", err);
+		return TTF_ERR;
 	}
 	/* Create a non-connectable non-scannable advertising set */
 	err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN_NAME, NULL, &adv);
 	if (err)
 	{
-		printk("Failed to create advertising set (err %d)\n", err);
-		return 0;
+		LOG_ERR("Failed to create advertising set (err %d)", err);
+		return TTF_ERR;
 	}
 
 	/* Set periodic advertising parameters */
 	err = bt_le_per_adv_set_param(adv, BT_LE_PER_ADV_DEFAULT);
 	if (err)
 	{
-		printk("Failed to set periodic advertising parameters"
-			   " (err %d)\n",
-			   err);
-		return 0;
+		LOG_ERR("Failed to set periodic advertising parameters (err %d)", err);
+		return TTF_ERR;
 	}
 
 	/* Enable Periodic Advertising */
 	err = bt_le_per_adv_start(adv);
 	if (err)
 	{
-		printk("Failed to enable periodic advertising (err %d)\n", err);
-		return 0;
+		LOG_ERR("Failed to enable periodic advertising (err %d)", err);
+		return TTF_ERR;
 	}
 
 	/* Start extended advertising */
 	err = bt_le_ext_adv_start(adv, BT_LE_EXT_ADV_START_DEFAULT);
 	if (err)
 	{
-		printk("Failed to start extended advertising (err %d)\n", err);
-		return 0;
+		LOG_ERR("Failed to start extended advertising (err %d)", err);
+		return TTF_ERR;
 	}
 
 	/* Create BIG */
 	err = bt_iso_big_create(adv, &big_create_param, &big);
 	if (err)
 	{
-		printk("Failed to create BIG (err %d)\n", err);
-		return 0;
+		LOG_ERR("Failed to create BIG (err %d)", err);
+		return TTF_ERR;
 	}
 
-	printk("Waiting for BIG complete chan...");
+	LOG_INF("Waiting for BIG complete chan...");
 	err = k_sem_take(&sem_big_cmplt, K_FOREVER);
 	if (err)
 	{
-		printk("failed (err %d)\n", err);
-		return 0;
+		LOG_ERR("failed (err %d)", err);
+		return TTF_ERR;
 	}
-	printk("BIG create complete chan.\n");
+	LOG_INF("BIG create complete chan.\n");
 
-	while (true)
+	return TTF_OK;
+}
+
+static int ttf_ble_broadcast()
+{
+	while (running)
 	{
 		struct net_buf *buf;
 		int ret;
@@ -169,8 +178,12 @@ int ttf_ble_init()
 		}
 
 		net_buf_reserve(buf, BT_ISO_CHAN_SEND_RESERVE);
-		sys_put_le32(iso_send_count, iso_data);
+		// NOTE: we do not check the error code, because it anyway waits FOREVER
+		k_sem_take(&sem_ttf_state, K_FOREVER);
+		sys_put_le32(ttf_state, iso_data);
+		k_sem_give(&sem_ttf_state);
 		net_buf_add_mem(buf, iso_data, sizeof(iso_data));
+
 		ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num, BT_ISO_TIMESTAMP_NONE);
 		if (ret < 0)
 		{
@@ -179,14 +192,55 @@ int ttf_ble_init()
 			return 0;
 		}
 
-		if ((iso_send_count % CONFIG_ISO_PRINT_INTERVAL) == 0)
-		{
-			printk("Sending value %u\n", iso_send_count);
-		}
-
-		iso_send_count++;
+		printk("Sending value %u\n", ttf_state);
 		seq_num++;
 	}
 
-	return 0;
+	return TTF_OK;
+}
+
+static int ttf_ble_thread_main()
+{
+	int ret = 0;
+	LOG_INF("TTF-Light starts to initiate the BLE Stack");
+	ret = ttf_ble_enable();
+	if (TTF_OK != ret)
+	{
+		LOG_ERR("Failed to initiate the TTF-Light BLE stack");
+		return ret;
+	}
+	LOG_INF("TTF-Light started the BLE Stack successfully");
+
+	LOG_INF("TTF-Light starts to broadcast current state");
+	ret = ttf_ble_broadcast();
+	if (TTF_OK != ret)
+	{
+		LOG_ERR("Failed to broadcast the current TTF-Light BLE state");
+		return ret;
+	}
+	LOG_INF("TTF-Light finished to broadcast current state");
+
+	return TTF_OK;
+}
+
+int ttf_ble_init()
+{
+	running = 1;
+	/* Start a thread to offload disk ops */
+	k_thread_create(&ttf_ble_thread_data, ttf_ble_thread_stack,
+					TTF_BLE_STACK_SIZE,
+					(k_thread_entry_t)ttf_ble_thread_main, NULL, NULL, NULL,
+					-5, 0, K_NO_WAIT);
+	k_thread_name_set(&ttf_ble_thread_data, "ttf_ble_worker");
+
+	return TTF_OK;
+}
+
+int ttf_ble_upd_status(ttf_state_t state)
+{
+	k_sem_take(&sem_ttf_state, K_FOREVER);
+	ttf_state = state;
+	k_sem_give(&sem_ttf_state);
+
+	return TTF_OK;
 }
