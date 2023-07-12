@@ -9,9 +9,9 @@
 #include <zephyr/bluetooth/iso.h>
 #include <zephyr/sys/byteorder.h>
 
-#include "ttf.h"
+#include "ttl.h"
 
-LOG_MODULE_REGISTER(ttf_ble, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_INF);
 
 #define BUF_ALLOC_TIMEOUT (10)						 /* milliseconds */
 #define BIG_TERMINATE_TIMEOUT_US (60 * USEC_PER_SEC) /* microseconds */
@@ -28,14 +28,14 @@ static K_SEM_DEFINE(sem_iso_data, CONFIG_BT_ISO_TX_BUF_COUNT,
 
 static uint8_t running;
 static uint16_t seq_num;
-static ttf_state_t ttf_state;
-static K_SEM_DEFINE(sem_ttf_state, 1, 1);
-static uint8_t iso_data[sizeof(ttf_state)] = {0};
+static ttl_state_t ttl_state;
+static K_SEM_DEFINE(sem_ttl_state, 1, 1);
+static uint8_t iso_data[sizeof(ttl_state)] = {0};
 
-// ttf ble thread objects
-#define TTF_BLE_STACK_SIZE (2048)
-static K_KERNEL_STACK_DEFINE(ttf_ble_thread_stack, TTF_BLE_STACK_SIZE);
-static struct k_thread ttf_ble_thread_data;
+// ttl ble thread objects
+#define TTL_BLE_STACK_SIZE (2048)
+static K_KERNEL_STACK_DEFINE(ttl_ble_thread_stack, TTL_BLE_STACK_SIZE);
+static struct k_thread ttl_ble_thread_data;
 
 static void iso_connected(struct bt_iso_chan *chan)
 {
@@ -88,27 +88,27 @@ static struct bt_iso_big_create_param big_create_param = {
 	.framing = 0,					 /* 0 - unframed, 1 - framed */
 };
 
-static int ttf_ble_enable()
+static int ttl_ble_enable()
 {
 	struct bt_le_ext_adv *adv;
 	struct bt_iso_big *big;
 	int err;
 
-	LOG_INF("Starting to initiate BLE stack for TTF-Light");
+	LOG_INF("Starting to initiate BLE stack for TTLight");
 
 	/* Initialize the Bluetooth Subsystem */
 	err = bt_enable(NULL);
 	if (err)
 	{
 		LOG_ERR("Bluetooth init failed (err %d)", err);
-		return TTF_ERR;
+		return TTL_ERR;
 	}
 	/* Create a non-connectable non-scannable advertising set */
 	err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN_NAME, NULL, &adv);
 	if (err)
 	{
 		LOG_ERR("Failed to create advertising set (err %d)", err);
-		return TTF_ERR;
+		return TTL_ERR;
 	}
 
 	/* Set periodic advertising parameters */
@@ -116,7 +116,7 @@ static int ttf_ble_enable()
 	if (err)
 	{
 		LOG_ERR("Failed to set periodic advertising parameters (err %d)", err);
-		return TTF_ERR;
+		return TTL_ERR;
 	}
 
 	/* Enable Periodic Advertising */
@@ -124,7 +124,7 @@ static int ttf_ble_enable()
 	if (err)
 	{
 		LOG_ERR("Failed to enable periodic advertising (err %d)", err);
-		return TTF_ERR;
+		return TTL_ERR;
 	}
 
 	/* Start extended advertising */
@@ -132,7 +132,7 @@ static int ttf_ble_enable()
 	if (err)
 	{
 		LOG_ERR("Failed to start extended advertising (err %d)", err);
-		return TTF_ERR;
+		return TTL_ERR;
 	}
 
 	/* Create BIG */
@@ -140,7 +140,7 @@ static int ttf_ble_enable()
 	if (err)
 	{
 		LOG_ERR("Failed to create BIG (err %d)", err);
-		return TTF_ERR;
+		return TTL_ERR;
 	}
 
 	LOG_INF("Waiting for BIG complete chan...");
@@ -148,14 +148,14 @@ static int ttf_ble_enable()
 	if (err)
 	{
 		LOG_ERR("failed (err %d)", err);
-		return TTF_ERR;
+		return TTL_ERR;
 	}
 	LOG_INF("BIG create complete chan.\n");
 
-	return TTF_OK;
+	return TTL_OK;
 }
 
-static int ttf_ble_broadcast()
+static int ttl_ble_broadcast()
 {
 	while (running)
 	{
@@ -179,9 +179,9 @@ static int ttf_ble_broadcast()
 
 		net_buf_reserve(buf, BT_ISO_CHAN_SEND_RESERVE);
 		// NOTE: we do not check the error code, because it anyway waits FOREVER
-		k_sem_take(&sem_ttf_state, K_FOREVER);
-		sys_put_le32(ttf_state, iso_data);
-		k_sem_give(&sem_ttf_state);
+		k_sem_take(&sem_ttl_state, K_FOREVER);
+		sys_put_le32(ttl_state.entire, iso_data);
+		k_sem_give(&sem_ttl_state);
 		net_buf_add_mem(buf, iso_data, sizeof(iso_data));
 
 		ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num, BT_ISO_TIMESTAMP_NONE);
@@ -192,55 +192,55 @@ static int ttf_ble_broadcast()
 			return 0;
 		}
 
-		printk("Sending value %u\n", ttf_state);
+		LOG_DBG("Sending value %d\n", ttl_state.entire);
 		seq_num++;
 	}
 
-	return TTF_OK;
+	return TTL_OK;
 }
 
-static int ttf_ble_thread_main()
+static void ttl_ble_thread_main()
 {
 	int ret = 0;
-	LOG_INF("TTF-Light starts to initiate the BLE Stack");
-	ret = ttf_ble_enable();
-	if (TTF_OK != ret)
+	LOG_INF("TTLight starts to initiate the BLE Stack");
+	ret = ttl_ble_enable();
+	if (TTL_OK != ret)
 	{
-		LOG_ERR("Failed to initiate the TTF-Light BLE stack");
-		return ret;
+		LOG_ERR("Failed to initiate the TTLight BLE stack");
+		return;
 	}
-	LOG_INF("TTF-Light started the BLE Stack successfully");
+	LOG_INF("TTLight started the BLE Stack successfully");
 
-	LOG_INF("TTF-Light starts to broadcast current state");
-	ret = ttf_ble_broadcast();
-	if (TTF_OK != ret)
+	LOG_INF("TTLight starts to broadcast current state");
+	ret = ttl_ble_broadcast();
+	if (TTL_OK != ret)
 	{
-		LOG_ERR("Failed to broadcast the current TTF-Light BLE state");
-		return ret;
+		LOG_ERR("Failed to broadcast the current TTLight BLE state");
+		return;
 	}
-	LOG_INF("TTF-Light finished to broadcast current state");
+	LOG_INF("TTLight finished to broadcast current state");
 
-	return TTF_OK;
+	return;
 }
 
-int ttf_ble_init()
+int ttl_ble_init()
 {
 	running = 1;
 	/* Start a thread to offload disk ops */
-	k_thread_create(&ttf_ble_thread_data, ttf_ble_thread_stack,
-					TTF_BLE_STACK_SIZE,
-					(k_thread_entry_t)ttf_ble_thread_main, NULL, NULL, NULL,
+	k_thread_create(&ttl_ble_thread_data, ttl_ble_thread_stack,
+					TTL_BLE_STACK_SIZE,
+					(k_thread_entry_t)ttl_ble_thread_main, NULL, NULL, NULL,
 					-5, 0, K_NO_WAIT);
-	k_thread_name_set(&ttf_ble_thread_data, "ttf_ble_worker");
+	k_thread_name_set(&ttl_ble_thread_data, "ttl_ble_worker");
 
-	return TTF_OK;
+	return TTL_OK;
 }
 
-int ttf_ble_upd_status(ttf_state_t state)
+int ttl_ble_upd_status(ttl_state_t state)
 {
-	k_sem_take(&sem_ttf_state, K_FOREVER);
-	ttf_state = state;
-	k_sem_give(&sem_ttf_state);
+	k_sem_take(&sem_ttl_state, K_FOREVER);
+	ttl_state = state;
+	k_sem_give(&sem_ttl_state);
 
-	return TTF_OK;
+	return TTL_OK;
 }

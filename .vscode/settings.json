@@ -55,7 +55,7 @@
         "errno.h": "c",
         "iso.h": "c",
         "ble.h": "c",
-        "ttf.h": "c"
+        "ttl.h": "c"
     },
     "cmake.configureOnOpen": true
 }

@@ -7,4 +7,5 @@ project(iso_broadcast)
 target_sources(app PRIVATE
     src/main.c
     src/ble.c
+    src/gpio.c
 )
