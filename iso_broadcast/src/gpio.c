@@ -164,6 +164,9 @@ int ttl_gpio_init()
 {
     running = 1;
     ttl_gpio_upd_state_cb = NULL;
+    ttl_state.entire = 0;
+    ttl_state.parts.left.parts.magic = 0x27;
+    ttl_state.parts.right.parts.magic = 0x11;
     /* Start a thread to offload disk ops */
     k_thread_create(&ttl_gpio_thread_data, ttl_gpio_thread_stack,
                     TTL_GPIO_STACK_SIZE,
