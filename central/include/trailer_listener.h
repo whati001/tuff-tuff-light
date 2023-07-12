@@ -42,7 +42,7 @@ enum TTL_LIGHT_STATES
     TTL_LIGHT_REVERSE = 0,
     TTL_LIGHT_BREAK,
     TTL_LIGHT_TURN,
-    TTL_LIGHT_RUNNING
+    TTL_LIGHT_DRIVE
 };
 
 struct trailer_listener

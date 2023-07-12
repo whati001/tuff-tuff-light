@@ -43,11 +43,11 @@ static void ttl_gpio_map_state()
     else if (values[TURN_LEFT])
     {
         ttl_state.parts.left.parts.state = TTL_LIGHT_TURN;
-        ttl_state.parts.right.parts.state = TTL_LIGHT_RUNNING;
+        ttl_state.parts.right.parts.state = TTL_LIGHT_DRIVE;
     }
     else if (values[TURN_RIGHT])
     {
-        ttl_state.parts.left.parts.state = TTL_LIGHT_RUNNING;
+        ttl_state.parts.left.parts.state = TTL_LIGHT_DRIVE;
         ttl_state.parts.right.parts.state = TTL_LIGHT_TURN;
     }
     else if (values[REVERSE])
@@ -57,8 +57,8 @@ static void ttl_gpio_map_state()
     }
     else
     {
-        ttl_state.parts.left.parts.state = TTL_LIGHT_RUNNING;
-        ttl_state.parts.right.parts.state = TTL_LIGHT_RUNNING;
+        ttl_state.parts.left.parts.state = TTL_LIGHT_DRIVE;
+        ttl_state.parts.right.parts.state = TTL_LIGHT_DRIVE;
     }
 }
 
@@ -110,10 +110,10 @@ static int ttl_gpio_poll()
     while (running)
     {
         ttl_gpio_poll_port();
-        LOG_INF("Polled current ttl gpio values:[%d,%d,%d,%d]", values[0], values[1], values[2], values[3]);
+        LOG_DBG("Polled current ttl gpio values:[%d,%d,%d,%d]", values[0], values[1], values[2], values[3]);
 
         ttl_gpio_map_state();
-        LOG_INF("ttl_state_t: {left: %d, right: %d}", ttl_state.parts.left.parts.state, ttl_state.parts.right.parts.state);
+        LOG_DBG("ttl_state_t: {left: %d, right: %d}", ttl_state.parts.left.parts.state, ttl_state.parts.right.parts.state);
 
         ret = ttl_gpio_upd_state();
         if (TTL_OK != ret)
@@ -122,7 +122,7 @@ static int ttl_gpio_poll()
             continue;
         }
 
-        k_msleep(500);
+        k_msleep(TTL_POLLING_INTERVAL_MS);
     }
 
     return TTL_OK;

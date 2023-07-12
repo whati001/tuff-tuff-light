@@ -236,10 +236,14 @@ int ttl_ble_init()
 	return TTL_OK;
 }
 
-int inline ttl_ble_upd_status(ttl_state_t state)
+int ttl_ble_upd_status(ttl_state_t state)
 {
 	if (state.entire != ttl_state.entire)
 	{
+		LOG_INF("Updated TTLight state to: {left.magic: %x, left.state: %d, right.magic: %x, right.state: %d}",
+				state.parts.left.parts.magic, state.parts.left.parts.state,
+				state.parts.right.parts.magic, state.parts.right.parts.state);
+
 		k_sem_take(&sem_ttl_state, K_FOREVER);
 		ttl_state = state;
 		k_sem_give(&sem_ttl_state);

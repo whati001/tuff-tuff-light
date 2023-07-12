@@ -6,12 +6,14 @@
 #define TTL_OK (0)
 #define TTL_ERR (-1)
 
+#define TTL_POLLING_INTERVAL_MS (50)
+
 enum TTL_LIGHT_STATES
 {
     TTL_LIGHT_REVERSE = 0,
     TTL_LIGHT_BREAK,
     TTL_LIGHT_TURN,
-    TTL_LIGHT_RUNNING
+    TTL_LIGHT_DRIVE
 };
 
 typedef union

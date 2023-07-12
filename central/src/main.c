@@ -26,11 +26,11 @@ uint8_t map_listner_state(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8
     else if (vals[TURN_LEFT])
     {
         *left_state = TTL_LIGHT_TURN;
-        *right_state = TTL_LIGHT_RUNNING;
+        *right_state = TTL_LIGHT_DRIVE;
     }
     else if (vals[TURN_RIGHT])
     {
-        *left_state = TTL_LIGHT_RUNNING;
+        *left_state = TTL_LIGHT_DRIVE;
         *right_state = TTL_LIGHT_TURN;
     }
     else if (vals[REVERSE])
@@ -40,8 +40,8 @@ uint8_t map_listner_state(uint8_t *vals, uint8_t len, uint8_t *left_state, uint8
     }
     else
     {
-        *left_state = TTL_LIGHT_RUNNING;
-        *right_state = TTL_LIGHT_RUNNING;
+        *left_state = TTL_LIGHT_DRIVE;
+        *right_state = TTL_LIGHT_DRIVE;
     }
 
     return 0;
