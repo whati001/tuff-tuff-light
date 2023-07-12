@@ -236,11 +236,14 @@ int ttl_ble_init()
 	return TTL_OK;
 }
 
-int ttl_ble_upd_status(ttl_state_t state)
+int inline ttl_ble_upd_status(ttl_state_t state)
 {
-	k_sem_take(&sem_ttl_state, K_FOREVER);
-	ttl_state = state;
-	k_sem_give(&sem_ttl_state);
+	if (state.entire != ttl_state.entire)
+	{
+		k_sem_take(&sem_ttl_state, K_FOREVER);
+		ttl_state = state;
+		k_sem_give(&sem_ttl_state);
+	}
 
 	return TTL_OK;
 }
