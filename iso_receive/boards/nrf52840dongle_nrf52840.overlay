@@ -21,17 +21,10 @@
  * };
  */
 
-&spi1_default {
-	group1 {
-			psels = <NRF_PSEL(SPIM_SCK, 0, 31)>,
-				<NRF_PSEL(SPIM_MOSI, 0, 29)>,
-				<NRF_PSEL(SPIM_MISO, 1, 13)>;
-		};
-};
 
 &spi1 {
 	compatible = "nordic,nrf-spim";
-	
+
 	led_strip: ws2812@0 {
 		compatible = "worldsemi,ws2812-spi";
 		label = "WS2812";
@@ -43,17 +36,45 @@
 		/* WS2812 */
 		chain-length = <PIXEL_COUNT>;
 		color-mapping = <LED_COLOR_ID_GREEN
-				 LED_COLOR_ID_RED
-				 LED_COLOR_ID_BLUE
-				 LED_COLOR_ID_WHITE>;
+		LED_COLOR_ID_RED
+		LED_COLOR_ID_BLUE
+		LED_COLOR_ID_WHITE>;
 		spi-one-frame = <ONE_FRAME>;
 		spi-zero-frame = <ZERO_FRAME>;
-
 	};
+};
+
+&spi1_default {
+	group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 0, 31)>,
+				<NRF_PSEL(SPIM_MOSI, 0, 29)>,
+				<NRF_PSEL(SPIM_MISO, 1, 13)>;
+		};
+};
+
+&spi1_sleep {
+	group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 0, 31)>,
+				<NRF_PSEL(SPIM_MOSI, 0, 29)>,
+				<NRF_PSEL(SPIM_MISO, 1, 13)>;
+		};
 };
 
 / {
 	aliases {
 		led-strip = &led_strip;
+	};
+};
+
+
+/ {
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+	};
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
 	};
 };

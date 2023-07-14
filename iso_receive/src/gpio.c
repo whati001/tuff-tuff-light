@@ -27,21 +27,16 @@ static K_SEM_DEFINE(sem_ttl_state, 1, 1);
 static const struct device *strip = DEVICE_DT_GET(DT_ALIAS(led_strip));
 
 // define led strip
-// #define RGBW(_r, _g, _b, _w)
-//     {
-//         .r = (_r), .g = (_g), .b = (_b), .w = (_w)
-//     }
-
-#define RGBW(_r, _g, _b, _w)            \
-    {                                   \
-        .r = (_r), .g = (_g), .b = (_b) \
+#define RGBW(_r, _g, _b, _w)                       \
+    {                                              \
+        .r = (_r), .g = (_g), .b = (_b), .w = (_w) \
     }
 
 static const struct led_rgb color_modes[] = {
-    RGBW(0xff, 0xff, 0xff, 0xff), /* reverse */
+    RGBW(0x00, 0x00, 0x00, 0xff), /* reverse */
     RGBW(0xff, 0x00, 0x00, 0x00), /* break */
     RGBW(0xff, 0xff, 0x00, 0x00), /* turn */
-    RGBW(0x40, 0x00, 0x00, 0x00), /* drive */
+    RGBW(0x40, 0x00, 0x00, 0x00)  /* drive */
 };
 struct led_rgb pixels[STRIP_NUM_PIXELS];
 
@@ -112,6 +107,7 @@ static int ttl_gpio_set()
                 memcpy(&pixels[idx], &color_modes[aio_light_state], sizeof(struct led_rgb));
             }
 
+            LOG_ERR("Update LED srip\n");
             int ret = led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
             if (ret)
             {
