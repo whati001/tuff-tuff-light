@@ -176,7 +176,7 @@ static void biginfo_cb(struct bt_le_per_adv_sync *sync,
 
     bt_addr_le_to_str(biginfo->addr, le_addr, sizeof(le_addr));
 
-    LOG_INF("BIG INFO[%u]: [DEVICE]: %s, sid 0x%02x, "
+    LOG_DBG("BIG INFO[%u]: [DEVICE]: %s, sid 0x%02x, "
             "num_bis %u, nse %u, interval 0x%04x (%u ms), "
             "bn %u, pto %u, irc %u, max_pdu %u, "
             "sdu_interval %u us, max_sdu %u, phy %s, "
@@ -210,7 +210,6 @@ static void iso_recv(struct bt_iso_chan *chan, const struct bt_iso_recv_info *in
     {
         state.entire = sys_get_le32(buf->data);
         LOG_DBG("Incoming data channel %p flags 0x%x seq_num %u ts %u len %u", chan, info->flags, info->seq_num, info->ts, buf->len);
-        LOG_DBG("TTL-State: left.magic: %x, left.state: %d, right.magic: %x, right.state: %d\n", state.parts.left.parts.magic, state.parts.left.parts.state, state.parts.right.parts.magic, state.parts.right.parts.state);
 
         if (ttl_upd_state_cb)
         {

@@ -10,6 +10,6 @@
  */
 int ttl_gpio_init();
 
-void ttl_gpio_register_cb(ttl_gpio_upd_state_cb_t cb);
+void ttl_gpio_register_cb(ttl_upd_state_cb_t cb);
 
 #endif

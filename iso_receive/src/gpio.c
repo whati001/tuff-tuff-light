@@ -16,6 +16,7 @@ LOG_MODULE_REGISTER(ttl_gpio, LOG_LEVEL_INF);
 static K_KERNEL_STACK_DEFINE(ttl_gpio_thread_stack, TTL_GPIO_STACK_SIZE);
 static struct k_thread ttl_gpio_thread_data;
 
+static ttl_light_orientiation_t orientation;
 static uint8_t running;
 static uint8_t ttl_state_changed;
 static ttl_state_t ttl_state;
@@ -57,26 +58,58 @@ static int ttl_gpio_enable()
     return TTL_OK;
 }
 
+static uint8_t ttl_gpio_map_aio_state()
+{
+    uint8_t state = TTL_LIGHT_DRIVE;
+    if (ttl_state.parts.bits.breaks)
+    {
+        state = TTL_LIGHT_BREAK;
+    }
+    else if (orientation == ORI_LEFT && ttl_state.parts.bits.lturn)
+    {
+        state = TTL_LIGHT_TURN;
+    }
+    else if (orientation == ORI_RIGHT && ttl_state.parts.bits.rturn)
+    {
+        state = TTL_LIGHT_TURN;
+    }
+    else if (ttl_state.parts.bits.reverse)
+    {
+        state = TTL_LIGHT_REVERSE;
+    }
+    else
+    {
+        state = TTL_LIGHT_DRIVE;
+    }
+
+    return state;
+}
+
 static int ttl_gpio_set()
 {
-    LOG_INF("STRIP_NUM_PIXELS: %d\n", STRIP_NUM_PIXELS);
-    uint8_t state;
+    ttl_state_t state;
     uint8_t state_changed;
     while (running)
     {
         k_sem_take(&sem_ttl_state, K_FOREVER);
         state_changed = ttl_state_changed;
         // TODO: add logic to differentiate if this is a right or left light
-        state = ttl_state.parts.left.parts.state;
+        state = ttl_state;
         k_sem_give(&sem_ttl_state);
 
         if (state_changed)
         {
-            LOG_INF("Received trailer light state update to %d", state);
+            LOG_INF("Received trailer light state update to:");
+            PRINT_TTL_STATE(state);
+            ttl_state_changed = 0;
+
+            // TODO: update all connected light components
+            // for AIO light
+            uint8_t aio_light_state = ttl_gpio_map_aio_state(state);
 
             for (uint8_t idx = 0; idx < ARRAY_SIZE(pixels); idx++)
             {
-                memcpy(&pixels[idx], &color_modes[state], sizeof(struct led_rgb));
+                memcpy(&pixels[idx], &color_modes[aio_light_state], sizeof(struct led_rgb));
             }
 
             int ret = led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
@@ -84,7 +117,6 @@ static int ttl_gpio_set()
             {
                 LOG_ERR("Failed to update led strip");
             }
-            ttl_state_changed = 0;
         }
 
         k_msleep(TTL_POLLING_INTERVAL_MS);
@@ -120,6 +152,7 @@ static void ttl_gpio_thread_main()
 int ttl_gpio_init()
 {
     running = 1;
+    orientation = ORI_LEFT;
     // TODO: Set to running
     ttl_state.entire = 0;
     ttl_state_changed = 0;

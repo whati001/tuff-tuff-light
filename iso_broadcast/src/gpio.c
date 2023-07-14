@@ -31,35 +31,22 @@ static const struct gpio_dt_spec gpios[] = {
 static uint8_t running;
 static uint8_t values[TTL_GPIO_VALUES_LEN];
 static ttl_state_t ttl_state;
-static ttl_gpio_upd_state_cb_t ttl_gpio_upd_state_cb;
+static ttl_upd_state_cb_t ttl_gpio_upd_state_cb;
 
 static void ttl_gpio_map_state()
 {
-    if (values[BREAK])
-    {
-        ttl_state.parts.left.parts.state = TTL_LIGHT_BREAK;
-        ttl_state.parts.right.parts.state = TTL_LIGHT_BREAK;
-    }
-    else if (values[TURN_LEFT])
-    {
-        ttl_state.parts.left.parts.state = TTL_LIGHT_TURN;
-        ttl_state.parts.right.parts.state = TTL_LIGHT_DRIVE;
-    }
-    else if (values[TURN_RIGHT])
-    {
-        ttl_state.parts.left.parts.state = TTL_LIGHT_DRIVE;
-        ttl_state.parts.right.parts.state = TTL_LIGHT_TURN;
-    }
-    else if (values[REVERSE])
-    {
-        ttl_state.parts.left.parts.state = TTL_LIGHT_REVERSE;
-        ttl_state.parts.right.parts.state = TTL_LIGHT_REVERSE;
-    }
-    else
-    {
-        ttl_state.parts.left.parts.state = TTL_LIGHT_DRIVE;
-        ttl_state.parts.right.parts.state = TTL_LIGHT_DRIVE;
-    }
+    ttl_state.entire = 0;
+    ttl_state.parts.magic = 0x27;
+    ttl_state.parts.reserved = 0x11;
+
+    ttl_state.parts.bits.breaks = values[BREAK] & 0x01;
+    ttl_state.parts.bits.lturn = values[TURN_LEFT] & 0x01;
+    ttl_state.parts.bits.rturn = values[TURN_RIGHT] & 0x01;
+    ttl_state.parts.bits.reverse = values[REVERSE] & 0x01;
+    ttl_state.parts.bits.ldrive = 1;
+    ttl_state.parts.bits.rdrive = 1;
+    // TODO: not supported yet
+    ttl_state.parts.bits.fog = 0;
 }
 
 static int ttl_gpio_enable()
@@ -113,7 +100,6 @@ static int ttl_gpio_poll()
         LOG_DBG("Polled current ttl gpio values:[%d,%d,%d,%d]", values[0], values[1], values[2], values[3]);
 
         ttl_gpio_map_state();
-        LOG_DBG("ttl_state_t: {left: %d, right: %d}", ttl_state.parts.left.parts.state, ttl_state.parts.right.parts.state);
 
         ret = ttl_gpio_upd_state();
         if (TTL_OK != ret)
@@ -152,7 +138,7 @@ static void ttl_gpio_thread_main()
     return;
 }
 
-void ttl_gpio_register_cb(ttl_gpio_upd_state_cb_t cb)
+void ttl_gpio_register_cb(ttl_upd_state_cb_t cb)
 {
     if (cb)
     {
@@ -165,8 +151,6 @@ int ttl_gpio_init()
     running = 1;
     ttl_gpio_upd_state_cb = NULL;
     ttl_state.entire = 0;
-    ttl_state.parts.left.parts.magic = 0x27;
-    ttl_state.parts.right.parts.magic = 0x11;
     /* Start a thread to offload disk ops */
     k_thread_create(&ttl_gpio_thread_data, ttl_gpio_thread_stack,
                     TTL_GPIO_STACK_SIZE,
