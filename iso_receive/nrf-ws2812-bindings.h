@@ -18,6 +18,6 @@
 #define ONE_FRAME 0x70
 
 // set how many pixels are used
-#define PIXEL_COUNT 12
+#define PIXEL_COUNT 9
 
 #endif

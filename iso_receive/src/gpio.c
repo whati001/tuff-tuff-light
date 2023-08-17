@@ -4,6 +4,7 @@
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/led_strip.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/drivers/gpio.h>
 
 #include "gpio.h"
 
@@ -25,6 +26,10 @@ static K_SEM_DEFINE(sem_ttl_state, 1, 1);
 
 #define STRIP_NUM_PIXELS DT_PROP(DT_ALIAS(led_strip), chain_length)
 static const struct device *strip = DEVICE_DT_GET(DT_ALIAS(led_strip));
+
+#define TTF_LEDS_DT DT_NODELABEL(signal_leds)
+#define TTF_BREAK_LED_DT DT_CHILD(TTF_LEDS_DT, break_led)
+static const struct gpio_dt_spec gpio_break = GPIO_DT_SPEC_GET_BY_IDX(TTF_BREAK_LED_DT, gpios, 0);
 
 // define led strip
 #define RGBW(_r, _g, _b, _w)                       \
@@ -49,6 +54,18 @@ static int ttl_gpio_enable()
     }
     LOG_INF("Found LED strip device %s", strip->name);
     memset(pixels, 0, sizeof(struct led_rgb) * STRIP_NUM_PIXELS);
+
+    if (!gpio_is_ready_dt(&gpio_break))
+    {
+        LOG_ERR("BREAK device is not ready");
+        return TTL_ERR;
+    }
+    if (gpio_pin_configure_dt(&gpio_break, GPIO_OUTPUT_ACTIVE) < 0)
+    {
+        LOG_ERR("BREAK device is not ready");
+        return TTL_ERR;
+    }
+    gpio_pin_set(gpio_break.port, gpio_break.pin, 0);
 
     return TTL_OK;
 }
@@ -112,6 +129,18 @@ static int ttl_gpio_set()
             if (ret)
             {
                 LOG_ERR("Failed to update led strip");
+            }
+
+            // for BREAK light
+            if (aio_light_state == TTL_LIGHT_BREAK)
+            {
+                LOG_INF("Set BREAK gpio to high");
+                gpio_pin_set(gpio_break.port, gpio_break.pin, 1);
+            }
+            else
+            {
+                LOG_INF("Set BREAK gpio to low");
+                gpio_pin_set(gpio_break.port, gpio_break.pin, 0);
             }
         }
 

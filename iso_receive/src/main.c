@@ -2,7 +2,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#define DONGLE 1
+#define DONGLE 0
 
 #if DONGLE == 1
 #include <zephyr/sys/printk.h>
