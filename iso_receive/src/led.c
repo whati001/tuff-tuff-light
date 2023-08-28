@@ -29,6 +29,14 @@ struct ttl_pwm_led_t
     const uint32_t pwm_duty;
 };
 
+enum ttl_pwm_led_idx
+{
+    TTL_PWM_IDX_BREAK = 0,
+    TTL_PWM_IDX_DIRPOINTER,
+    TTL_PWM_IDX_REVERSE,
+    TTL_PWM_IDX_DRIVE,
+};
+
 static struct ttl_pwm_led_t ttl_pwm_leds[] = {
     {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_break)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
@@ -75,31 +83,12 @@ static int ttl_led_enable()
     return TTL_OK;
 }
 
-static uint8_t ttl_led_map_aio_state()
+static void ttl_led_disconnect_all()
 {
-    uint8_t state = TTL_LIGHT_DRIVE;
-    // if (ttl_state.parts.bits.breaks)
-    // {
-    //     state = TTL_LIGHT_BREAK;
-    // }
-    // else if (orientation == ORI_LEFT && ttl_state.parts.bits.lturn)
-    // {
-    //     state = TTL_LIGHT_TURN;
-    // }
-    // else if (orientation == ORI_RIGHT && ttl_state.parts.bits.rturn)
-    // {
-    //     state = TTL_LIGHT_TURN;
-    // }
-    // else if (ttl_state.parts.bits.reverse)
-    // {
-    //     state = TTL_LIGHT_REVERSE;
-    // }
-    // else
-    // {
-    //     state = TTL_LIGHT_DRIVE;
-    // }
-
-    return state;
+    for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++)
+    {
+        ttl_led_disconnect(&ttl_pwm_leds[idx].pwm);
+    }
 }
 
 static int ttl_led_set()
@@ -120,38 +109,27 @@ static int ttl_led_set()
             PRINT_TTL_STATE(state);
             ttl_state_changed = 0;
 
-            // k_sleep(K_SECONDS(4));
-            // ttl_led_disconnect_channel(&pwmled_break);
-            // k_sleep(K_SECONDS(4));
-            // ttl_led_connect_channel(&pwmled_break);
+            // disconnect all LEDs
+            ttl_led_disconnect_all();
 
-            // // TODO: update all connected light components
-            // // for AIO light
-            // uint8_t aio_light_state = ttl_led_map_aio_state(state);
+            // map light state
+            if (state.parts.bits.breaks)
+            {
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_BREAK].pwm);
+            }
+            else if (state.parts.bits.reverse)
+            {
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_REVERSE].pwm);
+            }
+            else
+            {
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DRIVE].pwm);
+            }
 
-            // for (uint8_t idx = 0; idx < ARRAY_SIZE(pixels); idx++)
-            // {
-            //     memcpy(&pixels[idx], &color_modes[aio_light_state], sizeof(struct led_rgb));
-            // }
-
-            // LOG_ERR("Update LED srip\n");
-            // int ret = led_strip_update_rgb(strip, pixels, STRIP_NUM_PIXELS);
-            // if (ret)
-            // {
-            //     LOG_ERR("Failed to update led strip");
-            // }
-
-            // // for BREAK light
-            // if (aio_light_state == TTL_LIGHT_BREAK)
-            // {
-            //     LOG_INF("Set BREAK gpio to high");
-            //     gpio_pin_set(gpio_break.port, gpio_break.pin, 1);
-            // }
-            // else
-            // {
-            //     LOG_INF("Set BREAK gpio to low");
-            //     gpio_pin_set(gpio_break.port, gpio_break.pin, 0);
-            // }
+            if (state.parts.bits.lturn)
+            {
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER].pwm);
+            }
         }
 
         k_msleep(TTL_POLLING_INTERVAL_MS);

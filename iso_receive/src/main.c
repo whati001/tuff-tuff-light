@@ -44,11 +44,11 @@ int main(void)
 	LOG_INF("Starting TTLight Controller\n");
 	enable_usb_logging();
 
-	// err = ttl_ble_init();
-	// if (TTL_OK != err)
-	// {
-	// 	LOG_ERR("Failed to initialize the TTLight BLE stack\n");
-	// }
+	err = ttl_ble_init();
+	if (TTL_OK != err)
+	{
+		LOG_ERR("Failed to initialize the TTLight BLE stack\n");
+	}
 
 	err = ttl_led_init();
 	if (TTL_OK != err)
