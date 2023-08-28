@@ -7,5 +7,5 @@ project(iso_receive)
 target_sources(app PRIVATE
     src/main.c
     src/ble.c
-    src/gpio.c
+    src/led.c
 )

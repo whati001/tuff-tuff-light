@@ -30,8 +30,7 @@
             ],
             "cStandard": "c99",
             "forcedInclude": [
-                "${ncs}/build/zephyr/include/generated/autoconf.h",
-                "${ncs}zephyr/include/toolchain/zephyr_stdint.h",
+                "${ncs}zephyr/build/zephyr/include/generated/autoconf.h",
                 ""
             ],
             "compilerPath": "${gnuarmemb}/bin/arm-zephyr-eabi-gcc",
