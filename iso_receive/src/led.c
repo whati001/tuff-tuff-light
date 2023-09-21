@@ -3,6 +3,11 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/util.h>
 
+#include <zephyr/drivers/pwm.h>
+#include <nrfx_pwm.h>
+#include <nrfx.h>
+#include <haly/nrfy_pwm.h>
+
 #include "led.h"
 
 #define DT_DRV_COMPAT nrf52840dk
@@ -38,20 +43,50 @@ enum ttl_pwm_led_idx
 };
 
 static struct ttl_pwm_led_t ttl_pwm_leds[] = {
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_break)),
+    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_red)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
-     .pwm_duty = TTL_PWM_LED_DUTY},
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_dirpointer)),
+     .pwm_duty = TTL_PWM_LED_DUTY(100)},
+    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_yellow)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
-     .pwm_duty = TTL_PWM_LED_DUTY},
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_reverse)),
+     .pwm_duty = TTL_PWM_LED_DUTY(100)},
+    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_white)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
-     .pwm_duty = TTL_PWM_LED_DUTY},
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_drive)),
+     .pwm_duty = TTL_PWM_LED_DUTY(90)},
+    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_red)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
-     .pwm_duty = TTL_PWM_LED_DUTY}
-
+     .pwm_duty = TTL_PWM_LED_DUTY(30)},
 };
+
+/*
+ * @brief Very nasty functions to connect and disconnect the PWM channels, as
+ * explained in the NRF documentation: https://infocenter.nordicsemi.com/topic/ps_nrf52840/pwm.html?cp=5_0_0_5_16_4_22#register.PSEL.OUT-0-3
+ * This allows us to disable and enable the PWM signal on the GPIO port without
+ * the need to reconfigure the entire PWM instance. However, these hacky functions
+ * only work if the first member of the dev->config struct is the nrfx_pwm_t instance.
+ * The device config struct is private in the C file, hence we are unable to access its definition.
+ * But because the first required information is a the beginning of the config struct we simply
+ * access the nrfx_pwm_t directly, because they own the same address in memory.
+ */
+static void inline ttl_led_connect(struct ttl_pwm_led_t *led)
+{
+    int ret = pwm_set_dt(&led->pwm, led->pwm_periode, led->pwm_duty);
+    if (ret)
+    {
+        LOG_ERR("Error %d: failed to set pulse width\n", ret);
+        return;
+    }
+
+    const struct pwm_dt_spec *pwm = &led->pwm;
+    nrfx_pwm_t *nrfx_pwm = (nrfx_pwm_t *)pwm->dev->config;
+    nrfx_pwm->p_reg->PSEL.OUT[pwm->channel] &= ~(0x1 << PWM_PSEL_OUT_CONNECT_Pos);
+}
+
+static void inline ttl_led_disconnect(struct ttl_pwm_led_t *led)
+{
+    const struct pwm_dt_spec *pwm = &led->pwm;
+    nrfx_pwm_t *nrfx_pwm = (nrfx_pwm_t *)pwm->dev->config;
+    nrfx_pwm->p_reg->PSEL.OUT[pwm->channel] |= (0x1 << PWM_PSEL_OUT_CONNECT_Pos);
+}
 
 static int ttl_led_enable()
 {
@@ -87,7 +122,7 @@ static void ttl_led_disconnect_all()
 {
     for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++)
     {
-        ttl_led_disconnect(&ttl_pwm_leds[idx].pwm);
+        ttl_led_disconnect(&ttl_pwm_leds[idx]);
     }
 }
 
@@ -112,23 +147,30 @@ static int ttl_led_set()
             // disconnect all LEDs
             ttl_led_disconnect_all();
 
-            // map light state
-            if (state.parts.bits.breaks)
+            if (state.parts.bits.lturn)
             {
-                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_BREAK].pwm);
+                LOG_INF("Enable DIRECTION LIGHT");
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER]);
+            }
+            // TODO: change to a if
+            else if (state.parts.bits.breaks)
+            {
+                LOG_INF("Enable BREAK LIGHT");
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_BREAK]);
             }
             else if (state.parts.bits.reverse)
             {
-                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_REVERSE].pwm);
+                LOG_INF("Enable REVERSE LIGHT");
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_REVERSE]);
+            }
+            else if (state.parts.bits.ldrive)
+            {
+                LOG_INF("Enable DRIVE LIGHT");
+                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DRIVE]);
             }
             else
             {
-                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DRIVE].pwm);
-            }
-
-            if (state.parts.bits.lturn)
-            {
-                ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER].pwm);
+                LOG_INF("Nothing to enable???");
             }
         }
 
@@ -173,7 +215,7 @@ int ttl_led_init()
     k_thread_create(&ttl_led_thread_data, ttl_led_thread_stack,
                     TTL_LED_STACK_SIZE,
                     (k_thread_entry_t)ttl_led_thread_main, NULL, NULL, NULL,
-                    -5, 0, K_NO_WAIT);
+                    2, 0, K_NO_WAIT);
     k_thread_name_set(&ttl_led_thread_data, "ttl_ble_worker");
 
     return TTL_OK;

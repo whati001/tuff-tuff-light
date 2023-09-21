@@ -54,7 +54,8 @@
         "usb_device.h": "c",
         "led.h": "c",
         "nrfx_pwm.h": "c",
-        "nrfy_pwm.h": "c"
+        "nrfy_pwm.h": "c",
+        "pwm.h": "c"
     },
     "cmake.configureOnOpen": true
 }
