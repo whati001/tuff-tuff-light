@@ -5,11 +5,18 @@
  */
 
 // remove existing pwm LEDs dt configuration
+// remove buttons to avoid interference 
 / {
 	aliases {
-		/delete-property/ pwm-led0;
+		/delete-property/ pwm-led0;		
+		/delete-property/ sw0;
+		/delete-property/ sw1;
+		/delete-property/ sw2;
+		/delete-property/ sw3;
+		/delete-property/ mcuboot-button0;
 	};
 	/delete-node/ pwmleds;
+	/delete-node/ buttons;
 };
 
 // create new configuration
@@ -39,6 +46,29 @@
 		// remove nordic,invert property,
 		// otherwise the GPIO will be high if the PWM is disconnected
 		/delete-property/ nordic,invert;
+	};
+};
+
+/* 
+ * ADXL345 on I2C
+ * We use the alternative 7-bit I2C address: 0x53
+ * Furthermore, we use the following pins for I2C
+ *   - SCL: P0.22
+ *   - SDA: P0.25 -> we can not use P0.24 because this pin is fixed wired to the QSPI flash
+*/
+&i2c0 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	accelerometer: adxl345@53 {
+		compatible="adi,adxl345";
+		reg=<0x53>;
+	};
+};
+
+&i2c0_default {
+	group1 {
+		psels = <NRF_PSEL(TWIM_SCL, 0, 22)>,
+				<NRF_PSEL(TWIM_SDA, 0, 25)>;
 	};
 };
 
