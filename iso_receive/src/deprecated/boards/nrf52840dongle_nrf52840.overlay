@@ -1,0 +1,92 @@
+/*
+ * Copyright (c) 2019, Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/led/led.h>
+
+#include "../nrf-ws2812-bindings.h"
+
+/*
+ * Overrite spi1 -> is already
+ * enabled in the default dt file
+ *
+ * &spi1 {
+	 *    compatible = "nordic,nrf-spi";
+	 *    status = "okay";
+	 *    sck-pin = <31>;
+	 *    mosi-pin = <30>; P0.30 -> connect LED-IN
+	 *    miso-pin = <46>;
+ * };
+ */
+
+
+&spi1 {
+	compatible = "nordic,nrf-spim";
+
+	led_strip: ws2812@0 {
+		compatible = "worldsemi,ws2812-spi";
+		label = "WS2812";
+
+		/* SPI */
+		reg = <0>; /* ignored, but necessary for SPI bindings */
+		spi-max-frequency = <SPI_FREQ>;
+
+		/* WS2812 */
+		chain-length = <PIXEL_COUNT>;
+		color-mapping = <LED_COLOR_ID_GREEN
+		LED_COLOR_ID_RED
+		LED_COLOR_ID_BLUE
+		LED_COLOR_ID_WHITE>;
+		spi-one-frame = <ONE_FRAME>;
+		spi-zero-frame = <ZERO_FRAME>;
+	};
+};
+
+&spi1_default {
+	group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 0, 31)>,
+				<NRF_PSEL(SPIM_MOSI, 0, 29)>,
+				<NRF_PSEL(SPIM_MISO, 1, 13)>;
+		};
+};
+
+&spi1_sleep {
+	group1 {
+			psels = <NRF_PSEL(SPIM_SCK, 0, 31)>,
+				<NRF_PSEL(SPIM_MOSI, 0, 29)>,
+				<NRF_PSEL(SPIM_MISO, 1, 13)>;
+		};
+};
+
+/ {
+	aliases {
+		led-strip = &led_strip;
+	};
+};
+
+
+/ {
+	signal_leds:signal_leds {
+		compatible = "gpio-leds";
+		break_led {
+			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+			label = "BREAK LED";
+		};
+	};
+};
+
+
+
+/ {
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+	};
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};

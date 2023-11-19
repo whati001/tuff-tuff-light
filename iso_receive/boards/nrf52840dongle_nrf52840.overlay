@@ -4,89 +4,59 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <dt-bindings/led/led.h>
-
-#include "../nrf-ws2812-bindings.h"
-
-/*
- * Overrite spi1 -> is already
- * enabled in the default dt file
- *
- * &spi1 {
-	 *    compatible = "nordic,nrf-spi";
-	 *    status = "okay";
-	 *    sck-pin = <31>;
-	 *    mosi-pin = <30>; P0.30 -> connect LED-IN
-	 *    miso-pin = <46>;
- * };
- */
-
-
-&spi1 {
-	compatible = "nordic,nrf-spim";
-
-	led_strip: ws2812@0 {
-		compatible = "worldsemi,ws2812-spi";
-		label = "WS2812";
-
-		/* SPI */
-		reg = <0>; /* ignored, but necessary for SPI bindings */
-		spi-max-frequency = <SPI_FREQ>;
-
-		/* WS2812 */
-		chain-length = <PIXEL_COUNT>;
-		color-mapping = <LED_COLOR_ID_GREEN
-		LED_COLOR_ID_RED
-		LED_COLOR_ID_BLUE
-		LED_COLOR_ID_WHITE>;
-		spi-one-frame = <ONE_FRAME>;
-		spi-zero-frame = <ZERO_FRAME>;
-	};
-};
-
-&spi1_default {
-	group1 {
-			psels = <NRF_PSEL(SPIM_SCK, 0, 31)>,
-				<NRF_PSEL(SPIM_MOSI, 0, 29)>,
-				<NRF_PSEL(SPIM_MISO, 1, 13)>;
-		};
-};
-
-&spi1_sleep {
-	group1 {
-			psels = <NRF_PSEL(SPIM_SCK, 0, 31)>,
-				<NRF_PSEL(SPIM_MOSI, 0, 29)>,
-				<NRF_PSEL(SPIM_MISO, 1, 13)>;
-		};
-};
-
+// remove existing pwm LEDs dt configuration
 / {
 	aliases {
-		led-strip = &led_strip;
+		/delete-property/ pwm-led0;
+		/delete-property/ pwm-led1;
+		/delete-property/ pwm-led2;
+		/delete-property/ red-pwm-led;
+		/delete-property/ green-pwm-led;
+		/delete-property/ blue-pwm-led;
+
+		/delete-property/ green_pwm_led;
 	};
+	/delete-node/ pwmleds;
 };
 
-
+// create new configuration
 / {
-	signal_leds:signal_leds {
-		compatible = "gpio-leds";
-		break_led {
-			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
-			label = "BREAK LED";
+	pwmleds {
+		compatible = "pwm-leds";
+		pwm_red: pwm_led0 {
+			pwms = <&pwm0 0 PWM_SEC(1) PWM_POLARITY_NORMAL>;
+		};
+		pwm_yellow: pwm_led1 {
+			pwms = <&pwm0 1 PWM_SEC(1) PWM_POLARITY_NORMAL>;
+		};
+		pwm_white: pwm_led2 {
+			pwms = <&pwm0 2 PWM_SEC(1) PWM_POLARITY_NORMAL>;
 		};
 	};
-};
+};	
 
-
-
-/ {
-	chosen {
-		zephyr,console = &cdc_acm_uart0;
+&pwm0_default {
+	// use GPIO pins which are also available on the DONGLE
+	group1 {
+		psels = 
+			<NRF_PSEL(PWM_OUT0, 1, 10)>, 
+			<NRF_PSEL(PWM_OUT1, 1, 13)>,
+			<NRF_PSEL(PWM_OUT2, 1, 15)>;
+		
+		// remove nordic,invert property,
+		// otherwise the GPIO will be high if the PWM is disconnected
+		/delete-property/ nordic,invert;
 	};
 };
 
-&zephyr_udc0 {
-	cdc_acm_uart0: cdc_acm_uart0 {
-		compatible = "zephyr,cdc-acm-uart";
-	};
+&i2c0 {
+	status = "okay";
+};
+
+&i2c0_default {
+	// use GPIO are also available on the DONGLE
+	group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 20)>,
+				<NRF_PSEL(TWIM_SCL, 0, 22)>;
+		};
 };
