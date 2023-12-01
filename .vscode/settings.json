@@ -55,7 +55,14 @@
         "led.h": "c",
         "nrfx_pwm.h": "c",
         "nrfy_pwm.h": "c",
-        "pwm.h": "c"
+        "pwm.h": "c",
+        "iterable_sections.h": "c",
+        "sensor.h": "c",
+        "accel.h": "c"
     },
-    "cmake.configureOnOpen": true
+    "cmake.configureOnOpen": false,
+    "C_Cpp.intelliSenseEngine": "default",
+    "conventionalCommits.scopes": [
+        "dt"
+    ]
 }

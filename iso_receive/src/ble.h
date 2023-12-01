@@ -1,6 +1,9 @@
 #ifndef BLE_H
 #define BLE_H
 
+
+#include "ttl.h"
+
 /**
  * @brief Enable the TTLight BLE stack
  * This will enable the entire BLE with ISO stack
