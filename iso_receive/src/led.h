@@ -1,5 +1,5 @@
-#ifndef GPIO_H
-#define GPIO_H
+#ifndef LED_H
+#define LED_H
 
 #include "ttl.h"
 
