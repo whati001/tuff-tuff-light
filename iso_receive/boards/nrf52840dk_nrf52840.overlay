@@ -76,3 +76,12 @@
 	};
 };
 
+/ {
+		buttons {
+		compatible = "gpio-keys";
+		reboot_pin: reboot_pin {
+			gpios = < &gpio1 0 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+			label = "Push button switch 0";
+		};
+	};
+};
