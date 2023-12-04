@@ -1,7 +1,7 @@
 #ifndef ACCEL_H
 #define ACCEL_H
 
-#include <zephyr/drivers/sensor.h>
+#include <zephyr/drivers/sensor/adxl345.h>
 
 /**
  * @brief Enable the TTLight accel stack

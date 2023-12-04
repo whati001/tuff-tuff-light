@@ -34,3 +34,4 @@
 # Zephyr build dirs
 central/build/
 peripheral/build/
+.cache
