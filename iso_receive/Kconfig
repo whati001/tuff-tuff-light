@@ -18,3 +18,9 @@ config ISO_ALIGN_PRINT_INTERVALS
 	  Align interval-counter with packet number from incoming ISO packets.
 	  This may be needed if report printouts are to be synchronized between
 	  the iso_broadcast sample and the iso_receive sample.
+
+config TTL_SHUTDOWN_TIMEOUT
+	int "Shutdown timeout in seconds"
+	default 600
+	help
+	  Define the shutdown timeout interval in seconds

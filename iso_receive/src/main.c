@@ -4,6 +4,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/poweroff.h>
+#include <zephyr/sys/reboot.h>
 
 #define DONGLE 0
 
@@ -43,6 +44,11 @@ void enable_usb_logging() {
 }
 
 static int ttl_power_down() {
+  int err = ttl_accel_init();
+  if (TTL_OK != err) {
+    LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
+    return TTL_ERR;
+  }
   int rc = gpio_pin_configure_dt(&reboot_pin, GPIO_INPUT);
   if (rc < 0) {
     LOG_ERR("Could not configure sw0 GPIO (%d)\n", rc);
@@ -63,10 +69,13 @@ static int ttl_power_down() {
 
 int main(void) {
   int err = 0;
+  int64_t last_packet_time;
+  int64_t elapsed_time;
+
   LOG_INF("Starting TTLight Controller\n");
   enable_usb_logging();
 
-  // err = ttl_ble_init();
+  err = ttl_ble_init();
   if (TTL_OK != err) {
     LOG_ERR("Failed to initialize the TTLight BLE stack\n");
     return TTL_ERR;
@@ -79,20 +88,18 @@ int main(void) {
   }
   ttl_ble_register_cb(ttl_led_upd_status);
 
-  err = ttl_accel_init();
-  if (TTL_OK != err) {
-    LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
-    goto exit;
-  }
-
-  k_msleep(1000);
-  ttl_power_down();
-
 exit:
   while (1) {
-    k_msleep(1000);
-    struct sensor_value val;
-    ttl_accel_read(&val);
+    last_packet_time = ttl_ble_latest_packet_date();
+    elapsed_time = k_uptime_delta(&last_packet_time);
+    LOG_INF("Elapsed time: %lld", elapsed_time);
+    k_msleep(10000);
+    if (elapsed_time >= (CONFIG_TTL_SHUTDOWN_TIMEOUT * 1000)) {
+      err = ttl_power_down();
+      if (TTL_OK != err) {
+        LOG_ERR("Failed to shutdown, let's force a restart of the board");
+      }
+    }
   }
   return 0;
 }
