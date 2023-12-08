@@ -19,7 +19,6 @@ LOG_MODULE_REGISTER(ttl_led, LOG_LEVEL_INF);
 static K_KERNEL_STACK_DEFINE(ttl_led_thread_stack, TTL_LED_STACK_SIZE);
 static struct k_thread ttl_led_thread_data;
 
-static ttl_light_orientiation_t orientation;
 static uint8_t running;
 static uint8_t ttl_state_changed;
 static ttl_state_t ttl_state;
@@ -186,8 +185,6 @@ static void ttl_led_thread_main() {
 
 int ttl_led_init() {
   running = 1;
-  orientation = ORI_LEFT;
-  // TODO: Set to running
   ttl_state.entire = 0;
   ttl_state_changed = 0;
   /* Start a thread to offload disk ops */
@@ -205,6 +202,7 @@ int inline ttl_led_upd_status(ttl_state_t state) {
     ttl_state_changed = 1;
     ttl_state = state;
     k_sem_give(&sem_ttl_state);
+    PRINT_TTL_STATE(ttl_state);
   }
 
   return TTL_OK;

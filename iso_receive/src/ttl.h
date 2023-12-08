@@ -8,15 +8,9 @@
 
 #define TTL_POLLING_INTERVAL_MS (50)
 
-enum TTL_LIGHT_STATES {
-  TTL_LIGHT_REVERSE = 0,
-  TTL_LIGHT_BREAK,
-  TTL_LIGHT_TURN,
-  TTL_LIGHT_DRIVE
-};
-
-typedef enum { ORI_LEFT = 0, ORI_RIGHT } ttl_light_orientiation_t;
-
+/**
+ * @brief TTL light states
+ */
 typedef union {
   uint32_t entire;
   struct __attribute__((__packed__)) {
@@ -43,5 +37,4 @@ typedef int (*ttl_upd_state_cb_t)(ttl_state_t);
           state.parts.magic, state.parts.bits.breaks, state.parts.bits.lturn,  \
           state.parts.bits.rturn, state.parts.bits.reverse,                    \
           state.parts.bits.ldrive, state.parts.bits.rdrive);
-
 #endif

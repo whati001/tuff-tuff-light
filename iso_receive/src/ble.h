@@ -10,6 +10,7 @@
  * This will enable the entire BLE with ISO stack
  * and initialize a new BIS and starts sending the current
  * ttl state to the receivers
+ * @return TTL_OK on success, else some error code
  */
 int ttl_ble_init();
 

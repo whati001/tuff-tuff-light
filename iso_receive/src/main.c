@@ -22,9 +22,15 @@
 
 LOG_MODULE_REGISTER(ttl_main, LOG_LEVEL_INF);
 
+/**
+ * @brief Reset pin, used by the accelerometer to wakeup the boot
+ */
 static const struct gpio_dt_spec reboot_pin =
     GPIO_DT_SPEC_GET(DT_NODELABEL(reboot_pin), gpios);
 
+/**
+ * @brief Enable USB logging. Only relevant for nrf52840dongle
+ */
 void enable_usb_logging() {
 #if DONGLE == 1
   const struct device *const dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
@@ -43,6 +49,24 @@ void enable_usb_logging() {
 #endif
 }
 
+/**
+ * @brief Overwrite ASSERT handler
+ * @param reason - The reason for the fatal error
+ * @param esf    - Exception context, with details and partial or full register
+ *                 state when the error occurred. May in some cases be NULL.
+ */
+void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t *esf) {
+  ARG_UNUSED(esf);
+  LOG_ERR("Assert received, reboot system");
+  sys_reboot(SYS_REBOOT_COLD);
+  CODE_UNREACHABLE; /* LCOV_EXCL_LINE */
+}
+
+/**
+ * @brief Power down TTL to save energy.
+ * This function activates the acceleration monitoring and wakeups the MCU once
+ * a movement is recognized.
+ */
 static int ttl_power_down() {
   int err = ttl_accel_init();
   if (TTL_OK != err) {
@@ -67,6 +91,9 @@ static int ttl_power_down() {
   return TTL_OK;
 }
 
+/**
+ * @brief Main function of the TTL receiver
+ */
 int main(void) {
   int err = 0;
   int64_t last_packet_time;
@@ -98,6 +125,7 @@ exit:
       err = ttl_power_down();
       if (TTL_OK != err) {
         LOG_ERR("Failed to shutdown, let's force a restart of the board");
+        sys_reboot(SYS_REBOOT_COLD);
       }
     }
   }
