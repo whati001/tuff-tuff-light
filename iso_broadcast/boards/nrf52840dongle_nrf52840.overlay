@@ -1,0 +1,35 @@
+
+/ {
+    aliases {
+		/delete-property/ sw0;
+		/delete-property/ sw1;
+		/delete-property/ sw2;
+		/delete-property/ sw3;
+    /delete-property/ mcuboot-button0;
+
+    ttl-break = &button0;
+    ttl-tleft = &button1;
+    ttl-tright = &button2;
+	};
+};
+
+/* Define buttons -> light sniffing gpios */
+/ {
+  /delete-node/ buttons;
+
+  buttons {
+		compatible = "gpio-keys";
+		button0: button_0 {
+			gpios = < &gpio0 22 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+		};
+  
+    button1: button1 {
+      gpios = < &gpio0 24 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+    };
+
+    button2: button2 {
+      gpios = < &gpio1 0 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+    };
+
+	};
+};

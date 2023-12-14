@@ -12,15 +12,14 @@ static K_KERNEL_STACK_DEFINE(ttl_gpio_thread_stack, TTL_GPIO_STACK_SIZE);
 static struct k_thread ttl_gpio_thread_data;
 
 // ttl gpio hardware mapping
-enum GPIO_MAPPING { REVERSE = 0, BREAK, TURN_LEFT, TURN_RIGHT, DRIVE };
+enum GPIO_MAPPING { BREAK = 0, TURN_LEFT, TURN_RIGHT };
 static const struct gpio_dt_spec gpios[] = {
-    GPIO_DT_SPEC_GET_OR(DT_ALIAS(ttl_reverse), gpios, {0}),
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(ttl_break), gpios, {0}),
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(ttl_tleft), gpios, {0}),
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(ttl_tright), gpios, {0})};
 
 // ttl gpio runtime variables
-#define TTL_GPIO_VALUES_LEN 5
+#define TTL_GPIO_VALUES_LEN 3
 static uint8_t running;
 static uint8_t values[TTL_GPIO_VALUES_LEN];
 static ttl_state_t ttl_state;
@@ -34,19 +33,19 @@ static void ttl_gpio_map_state() {
   ttl_state.parts.bits.breaks = values[BREAK] & 0x01;
   ttl_state.parts.bits.lturn = values[TURN_LEFT] & 0x01;
   ttl_state.parts.bits.rturn = values[TURN_RIGHT] & 0x01;
-  ttl_state.parts.bits.reverse = values[REVERSE] & 0x01;
   ttl_state.parts.bits.ldrive = 1;
   ttl_state.parts.bits.rdrive = 1;
   // TODO: not supported yet
+  ttl_state.parts.bits.reverse = 0;
   ttl_state.parts.bits.fog = 0;
 }
 
 static int ttl_gpio_enable() {
   int ret = 0;
 
-  memset(values, 0, TTL_GPIO_VALUES_LEN);
-  if (!device_is_ready(gpios[REVERSE].port)) {
-    LOG_ERR("GPIO port %s is not ready", gpios[REVERSE].port->name);
+  memset(values, 0, ARRAY_SIZE(values));
+  if (!device_is_ready(gpios[BREAK].port)) {
+    LOG_ERR("GPIO port %s is not ready", gpios[BREAK].port->name);
     return TTL_ERR;
   }
 
@@ -79,8 +78,8 @@ static int ttl_gpio_poll() {
   int ret;
   while (running) {
     ttl_gpio_poll_port();
-    LOG_DBG("Polled current ttl gpio values:[%d,%d,%d,%d]", values[0],
-            values[1], values[2], values[3]);
+    LOG_DBG("Polled current ttl gpio values:[%d,%d,%d]", values[0], values[1],
+            values[2]);
 
     ttl_gpio_map_state();
 
