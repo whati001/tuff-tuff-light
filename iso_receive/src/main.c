@@ -6,15 +6,6 @@
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/reboot.h>
 
-#define DONGLE 0
-
-#if DONGLE == 1
-#include <zephyr/drivers/uart.h>
-#include <zephyr/sys/printk.h>
-#include <zephyr/usb/usb_device.h>
-#include <zephyr/usb/usbd.h>
-#endif
-
 #include "accel.h"
 #include "ble.h"
 #include "led.h"
@@ -27,27 +18,6 @@ LOG_MODULE_REGISTER(ttl_main, LOG_LEVEL_INF);
  */
 static const struct gpio_dt_spec reboot_pin =
     GPIO_DT_SPEC_GET(DT_NODELABEL(reboot_pin), gpios);
-
-/**
- * @brief Enable USB logging. Only relevant for nrf52840dongle
- */
-void enable_usb_logging() {
-#if DONGLE == 1
-  const struct device *const dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
-  uint32_t dtr = 0;
-
-  if (usb_enable(NULL)) {
-    return;
-  }
-
-  /* Poll if the DTR flag was set */
-  while (!dtr) {
-    uart_line_ctrl_get(dev, UART_LINE_CTRL_DTR, &dtr);
-    /* Give CPU resources to low priority threads. */
-    k_sleep(K_MSEC(100));
-  }
-#endif
-}
 
 /**
  * @brief Overwrite ASSERT handler
@@ -100,7 +70,6 @@ int main(void) {
   int64_t elapsed_time;
 
   LOG_INF("Starting TTLight Controller\n");
-  enable_usb_logging();
 
   err = ttl_ble_init();
   if (TTL_OK != err) {

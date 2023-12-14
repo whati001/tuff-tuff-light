@@ -137,7 +137,7 @@ static int ttl_led_set() {
       // disconnect all LEDs
       ttl_led_disconnect_all();
 
-      if (state.parts.bits.lturn) {
+      if (state.parts.bits.rturn) {
         LOG_INF("Enable DIRECTION LIGHT");
         ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER]);
       }
