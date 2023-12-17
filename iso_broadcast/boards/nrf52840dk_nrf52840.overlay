@@ -16,6 +16,7 @@
 /*
  * Only active this change only if you would like to test with the GPIO pins instead of the buttons on the DK.
  */
+/*
 &button0 {
   gpios = < &gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
   /delete-property/ zephyr,code;
@@ -35,3 +36,4 @@
   gpios = < &gpio0 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
   /delete-property/ zephyr,code;
 };
+*/
