@@ -38,11 +38,11 @@ void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t *esf) {
  * a movement is recognized.
  */
 static int ttl_power_down() {
-  int err = ttl_accel_init();
-  if (TTL_OK != err) {
-    LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
-    return TTL_ERR;
-  }
+  // int err = ttl_accel_init();
+  // if (TTL_OK != err) {
+  //   LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
+  //   return TTL_ERR;
+  // }
   int rc = gpio_pin_configure_dt(&reboot_pin, GPIO_INPUT);
   if (rc < 0) {
     LOG_ERR("Could not configure sw0 GPIO (%d)\n", rc);
