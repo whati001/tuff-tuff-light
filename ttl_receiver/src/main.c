@@ -55,6 +55,8 @@ static int ttl_power_down() {
     return TTL_ERR;
   }
 
+  // #TODO: disable all system components before shutting down
+
   // perform some power down if no ble was found for a given time
   sys_poweroff();
 
@@ -76,6 +78,14 @@ int main(void) {
     LOG_ERR("Failed to initialize the TTLight BLE stack\n");
     return TTL_ERR;
   }
+  LOG_INF("Initialized TTLight BLE stack properly");
+
+  err = ttl_ble_start();
+  if (TTL_OK != err) {
+    LOG_ERR("Failed to start TTLight BLE stack");
+    return TTL_ERR;
+  }
+  LOG_INF("Started TTLight BLE stack properly");
 
   err = ttl_led_init();
   if (TTL_OK != err) {
