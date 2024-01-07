@@ -10,7 +10,6 @@ LOG_MODULE_REGISTER(ttl_gpio, LOG_LEVEL_INF);
 #define TTL_GPIO_STACK_SIZE (2048)
 static K_KERNEL_STACK_DEFINE(ttl_gpio_thread_stack, TTL_GPIO_STACK_SIZE);
 static struct k_thread ttl_gpio_thread_data;
-static K_MUTEX_DEFINE(ttl_gpio_running);
 
 // ttl gpio hardware mapping
 enum GPIO_MAPPING { BREAK = 0, TURN_LEFT, TURN_RIGHT };
@@ -78,11 +77,6 @@ static void ttl_gpio_loop() {
   int ret;
 
   while (true) {
-
-    // wait until the mutex is released
-    k_mutex_lock(&ttl_gpio_running, K_FOREVER);
-    k_mutex_unlock(&ttl_gpio_running);
-
     ttl_gpio_poll_port();
     LOG_DBG("Polled current ttl gpio values:[%d,%d,%d]", values[0], values[1],
             values[2]);
@@ -117,14 +111,6 @@ int ttl_gpio_init() {
 
   ttl_gpio_upd_state_cb = NULL;
   ttl_state.entire = 0;
-  k_mutex_lock(&ttl_gpio_running, K_FOREVER);
-
-  /* Start a thread to sample TTLight GPIO state independently from the main
-   * thread*/
-  k_thread_create(&ttl_gpio_thread_data, ttl_gpio_thread_stack,
-                  TTL_GPIO_STACK_SIZE, (k_thread_entry_t)ttl_gpio_loop, NULL,
-                  NULL, NULL, -5, 0, K_NO_WAIT);
-  k_thread_name_set(&ttl_gpio_thread_data, "ttl_ble_worker");
 
   LOG_INF("TTLight started the GPIO Stack successfully");
 
@@ -132,11 +118,17 @@ int ttl_gpio_init() {
 }
 
 int ttl_gpio_start() {
-  k_mutex_unlock(&ttl_gpio_running);
+  /* Start a thread to sample TTLight GPIO state independently from the main
+   * thread*/
+  k_thread_create(&ttl_gpio_thread_data, ttl_gpio_thread_stack,
+                  TTL_GPIO_STACK_SIZE, (k_thread_entry_t)ttl_gpio_loop, NULL,
+                  NULL, NULL, 1, 0, K_NO_WAIT);
+  k_thread_name_set(&ttl_gpio_thread_data, "ttl_ble_worker");
+
   return TTL_OK;
 }
 
 int ttl_gpio_stop() {
-  k_mutex_lock(&ttl_gpio_running, K_FOREVER);
+  k_thread_abort(&ttl_gpio_thread_data);
   return TTL_OK;
 }

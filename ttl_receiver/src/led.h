@@ -18,13 +18,6 @@
 int ttl_led_init();
 
 /**
- * @brief Deinitialize tht TTLight LED stack. This function sets all LEDs to off
- * and terminates the thread.
- * @return TTL_OK on success, else TTL_ERR
- */
-int ttl_led_deinit();
-
-/**
  * @brief Start periodically updating the external LEDs with the current TTLight
  * state.
  * @return TTL_OK on success, else TTL_ERR

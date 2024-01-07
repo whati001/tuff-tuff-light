@@ -43,7 +43,6 @@ static int ttl_power_down() {
   // stop all components
   ttl_ble_stop();
   ttl_led_stop();
-  ttl_led_deinit();
 
   // int err = ttl_accel_init();
   // if (TTL_OK != err) {

@@ -128,10 +128,6 @@ static int ttl_led_loop() {
   uint8_t state_changed;
 
   while (true) {
-    // wait until the mutex is released
-    k_mutex_lock(&ttl_led_running, K_FOREVER);
-    k_mutex_unlock(&ttl_led_running);
-
     k_sem_take(&sem_ttl_state, K_FOREVER);
     state_changed = ttl_state_changed;
     state = ttl_state;
@@ -182,26 +178,31 @@ int ttl_led_init() {
     LOG_ERR("Failed to initiate the TTLight GPIO stack");
     return TTL_ERR;
   }
-  LOG_INF("TTLight started the GPIO stack successfully");
+  LOG_INF("TTLight initiated the GPIO stack successfully");
 
+  return TTL_OK;
+}
+
+int ttl_led_start() {
   /* Start a thread to offload disk ops */
   k_thread_create(&ttl_led_thread_data, ttl_led_thread_stack,
                   TTL_LED_STACK_SIZE, (k_thread_entry_t)ttl_led_loop, NULL,
                   NULL, NULL, 2, 0, K_NO_WAIT);
   k_thread_name_set(&ttl_led_thread_data, "ttl_ble_worker");
 
-  LOG_INF("TTLight started the LED stack successfully");
-
-  return TTL_OK;
-}
-
-int ttl_led_start() {
-  k_mutex_unlock(&ttl_led_running);
   return TTL_OK;
 }
 
 int ttl_led_stop() {
-  k_mutex_lock(&ttl_led_running, K_FOREVER);
+  // kill the thread
+  k_thread_abort(&ttl_led_thread_data);
+
+  // set all LEDs to off
+  for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
+    pwm_set_dt(&ttl_pwm_leds[idx].pwm, ttl_pwm_leds[idx].pwm_periode, 0);
+  }
+  ttl_led_disconnect_all();
+
   return TTL_OK;
 }
 
@@ -213,19 +214,6 @@ int inline ttl_led_upd_status(ttl_state_t state) {
     k_sem_give(&sem_ttl_state);
     PRINT_TTL_STATE(ttl_state);
   }
-
-  return TTL_OK;
-}
-
-int ttl_led_deinit() {
-  // kill the thread
-  k_thread_abort(&ttl_led_thread_data);
-
-  // set all LEDs to off
-  for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
-    pwm_set_dt(&ttl_pwm_leds[idx].pwm, ttl_pwm_leds[idx].pwm_periode, 0);
-  }
-  ttl_led_disconnect_all();
 
   return TTL_OK;
 }
