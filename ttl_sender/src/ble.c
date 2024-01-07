@@ -46,9 +46,12 @@ int ttl_ble_init() {
 
   /* Set periodic advertising parameters */
   err = bt_le_per_adv_set_param(
-      adv, BT_LE_PER_ADV_PARAM(BT_GAP_PER_ADV_FAST_INT_MIN_1,
-                               BT_GAP_PER_ADV_FAST_INT_MAX_1,
-                               BT_LE_PER_ADV_OPT_NONE));
+      adv, BT_LE_PER_ADV_PARAM(0xa, 0xf, BT_LE_PER_ADV_OPT_NONE));
+
+  // err = bt_le_per_adv_set_param(
+  //     adv, BT_LE_PER_ADV_PARAM(BT_GAP_PER_ADV_FAST_INT_MIN_1,
+  //                              BT_GAP_PER_ADV_FAST_INT_MAX_1,
+  //                              BT_LE_PER_ADV_OPT_NONE));
   if (err) {
     LOG_ERR("Failed to set periodic advertising parameters (err %d)", err);
     return TTL_ERR;
