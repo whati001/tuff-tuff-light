@@ -95,6 +95,7 @@ static int ttl_ble_enable() {
     LOG_ERR("Bluetooth init failed (err %d)", err);
     return TTL_ERR;
   }
+  // err = bt_le_ext_adv_create(BT_LE_EXT_ADV_CODED_NCONN_NAME, NULL, &adv);
   /* Create a non-connectable non-scannable advertising set */
   err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN_NAME, NULL, &adv);
   if (err) {
