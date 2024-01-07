@@ -80,7 +80,7 @@ static void scan_recv(const struct bt_le_scan_recv_info *info,
   bt_data_parse(buf, data_cb, name);
 
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
-  printk("[DEVICE]: %s, AD evt type %u, Tx Pwr: %i, RSSI %i %s "
+  LOG_DBG("[DEVICE]: %s, AD evt type %u, Tx Pwr: %i, RSSI %i %s "
          "C:%u S:%u D:%u SR:%u E:%u Prim: %s, Secn: %s, "
          "Interval: 0x%04x (%u ms), SID: %u\n",
          le_addr, info->adv_type, info->tx_power, info->rssi, name,

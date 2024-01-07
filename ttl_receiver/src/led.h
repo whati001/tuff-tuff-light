@@ -10,18 +10,39 @@
 #define TTL_PWM_LED_DUTY(x) (TTL_PWM_LED_PERIODE / 100 * (x - 1))
 
 /**
- * @brief Enable the TTLight GPIO stack
- * This function initiates the GPIO port
- * and starts to poll the current state
- * @return TTL_OK on success, else some error code
+ * @brief Enable the TTLight LED stack and start a new thread to update LED
+ * state periodically. The actually update the LED state, please use
+ * @ttl_led_start and @ttl_led_stop.
+ * @return TTL_OK on success, else TTL_ERR
  */
 int ttl_led_init();
+
+/**
+ * @brief Deinitialize tht TTLight LED stack. This function sets all LEDs to off
+ * and terminates the thread.
+ * @return TTL_OK on success, else TTL_ERR
+ */
+int ttl_led_deinit();
+
+/**
+ * @brief Start periodically updating the external LEDs with the current TTLight
+ * state.
+ * @return TTL_OK on success, else TTL_ERR
+ */
+int ttl_led_start();
+
+/**
+ * @brief Stop periodically updating the external LEDs with the current TTLight
+ * state.
+ * @return TTL_OK on success, else TTL_ERR
+ */
+int ttl_led_stop();
 
 /**
  * @brief Callback function to update internal led status.
  * By executing this callback status, other threads can request a led change.
  * @param[in] state - new ttl state to light up
- * @return TTL_OK on success, else some error code
+ * @return TTL_OK on success, else TTL_ERR
  */
 int ttl_led_upd_status(ttl_state_t state);
 
