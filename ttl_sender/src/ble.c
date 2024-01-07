@@ -19,7 +19,6 @@ static struct {
 } ttl_ble = {0, 0};
 
 static ttl_state_t ttl_state;
-static K_SEM_DEFINE(sem_ttl_state, 1, 1);
 
 static struct bt_le_ext_adv *adv;
 static const struct bt_data ad[] = {
@@ -139,15 +138,12 @@ int ttl_ble_upd_status(ttl_state_t state) {
     LOG_INF("Updated TTLight state to:");
     PRINT_TTL_STATE(state);
 
-    k_sem_take(&sem_ttl_state, K_FOREVER);
     ttl_state = state;
     err = bt_le_per_adv_set_data(adv, ad, ARRAY_SIZE(ad));
     if (err) {
       printk("Failed (err %d)\n", err);
       return 0;
     }
-
-    k_sem_give(&sem_ttl_state);
   }
 
   return TTL_OK;
