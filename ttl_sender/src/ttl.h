@@ -6,7 +6,7 @@
 #define TTL_OK (0)
 #define TTL_ERR (-1)
 
-#define TTL_POLLING_INTERVAL_MS (50)
+#define TTL_POLLING_INTERVAL_MS (10)
 
 /**
  * @brief TTL light states

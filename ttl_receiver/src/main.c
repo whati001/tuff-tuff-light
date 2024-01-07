@@ -101,7 +101,7 @@ int main(void) {
   }
   LOG_INF("Started TTLight BLE stack properly");
 
-  // err = ttl_led_start();
+  err = ttl_led_start();
   if (TTL_OK != err) {
     LOG_ERR("Failed to start TTLight LED stack");
     return TTL_ERR;

@@ -64,16 +64,16 @@ int ttl_ble_init() {
   /* Set Periodic Advertising Data */
   err = bt_le_per_adv_set_data(adv, ad, ARRAY_SIZE(ad));
   if (err) {
-    printk("Failed (err %d)\n", err);
+    LOG_INF("Failed (err %d)", err);
     return 0;
   }
 
-  LOG_INF("Extended periodic advertisement channel created.\n");
+  LOG_INF("Extended periodic advertisement channel created.");
 
   /* Set Periodic Advertising Data */
   err = bt_le_per_adv_set_data(adv, ad, ARRAY_SIZE(ad));
   if (err) {
-    printk("Failed (err %d)\n", err);
+    LOG_INF("Failed (err %d)", err);
     return 0;
   }
 
@@ -112,9 +112,9 @@ int tll_ble_stop() {
     /* Stop extended advertising */
     err = bt_le_ext_adv_stop(adv);
     if (err) {
-      printk("Failed to stop extended advertising "
-             "(err %d)\n",
-             err);
+      LOG_INF("Failed to stop extended advertising "
+              "(err %d)",
+              err);
       return TTL_ERR;
     }
   }
@@ -141,7 +141,7 @@ int ttl_ble_upd_status(ttl_state_t state) {
     ttl_state = state;
     err = bt_le_per_adv_set_data(adv, ad, ARRAY_SIZE(ad));
     if (err) {
-      printk("Failed (err %d)\n", err);
+      LOG_INF("Failed (err %d)", err);
       return 0;
     }
   }

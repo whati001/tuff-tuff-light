@@ -81,16 +81,16 @@ static void scan_recv(const struct bt_le_scan_recv_info *info,
 
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
   LOG_DBG("[DEVICE]: %s, AD evt type %u, Tx Pwr: %i, RSSI %i %s "
-         "C:%u S:%u D:%u SR:%u E:%u Prim: %s, Secn: %s, "
-         "Interval: 0x%04x (%u ms), SID: %u\n",
-         le_addr, info->adv_type, info->tx_power, info->rssi, name,
-         (info->adv_props & BT_GAP_ADV_PROP_CONNECTABLE) != 0,
-         (info->adv_props & BT_GAP_ADV_PROP_SCANNABLE) != 0,
-         (info->adv_props & BT_GAP_ADV_PROP_DIRECTED) != 0,
-         (info->adv_props & BT_GAP_ADV_PROP_SCAN_RESPONSE) != 0,
-         (info->adv_props & BT_GAP_ADV_PROP_EXT_ADV) != 0,
-         phy2str(info->primary_phy), phy2str(info->secondary_phy),
-         info->interval, info->interval * 5 / 4, info->sid);
+          "C:%u S:%u D:%u SR:%u E:%u Prim: %s, Secn: %s, "
+          "Interval: 0x%04x (%u ms), SID: %u\n",
+          le_addr, info->adv_type, info->tx_power, info->rssi, name,
+          (info->adv_props & BT_GAP_ADV_PROP_CONNECTABLE) != 0,
+          (info->adv_props & BT_GAP_ADV_PROP_SCANNABLE) != 0,
+          (info->adv_props & BT_GAP_ADV_PROP_DIRECTED) != 0,
+          (info->adv_props & BT_GAP_ADV_PROP_SCAN_RESPONSE) != 0,
+          (info->adv_props & BT_GAP_ADV_PROP_EXT_ADV) != 0,
+          phy2str(info->primary_phy), phy2str(info->secondary_phy),
+          info->interval, info->interval * 5 / 4, info->sid);
 
   if (!per_adv_found && info->interval) {
     per_adv_found = true;
@@ -143,15 +143,19 @@ static void recv_cb(struct bt_le_per_adv_sync *sync,
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
   bin2hex(buf->data, buf->len, data_str, sizeof(data_str));
 
-  printk("PER_ADV_SYNC[%u]: [DEVICE]: %s, tx_power %i, "
-         "RSSI %i, CTE %u, data length %u, data: %s\n",
-         bt_le_per_adv_sync_get_index(sync), le_addr, info->tx_power,
-         info->rssi, info->cte_type, buf->len, data_str);
+  LOG_DBG("PER_ADV_SYNC[%u]: [DEVICE]: %s, tx_power %i, "
+          "RSSI %i, CTE %u, data length %u, data: %s\n",
+          bt_le_per_adv_sync_get_index(sync), le_addr, info->tx_power,
+          info->rssi, info->cte_type, buf->len, data_str);
 
+  // TODO: use some better parsing logic
+  // BLE advertizes the data as following length|id|data0|..|dataN
+  // so the ttl_state look as follows: 05|FF|..data..
   ttl_state_t state;
+  uint16_t ttl_state_size = sizeof(ttl_state_t) + 2;
 
-  if (buf->len == sizeof(state)) {
-    state.entire = sys_get_le32(buf->data);
+  if (buf->len == ttl_state_size) {
+    state.entire = sys_get_le32(buf->data + 2);
 
     if (ttl_upd_state_cb) {
       (*ttl_upd_state_cb)(state);
