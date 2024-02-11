@@ -44,11 +44,11 @@ static int ttl_power_down() {
   ttl_ble_stop();
   ttl_led_stop();
 
-  // int err = ttl_accel_init();
-  // if (TTL_OK != err) {
-  //   LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
-  //   return TTL_ERR;
-  // }
+  err = ttl_accel_init();
+  if (TTL_OK != err) {
+    LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
+    return TTL_ERR;
+  }
   err = gpio_pin_configure_dt(&reboot_pin, GPIO_INPUT);
   if (err < 0) {
     LOG_ERR("Could not configure sw0 GPIO (%d)\n", err);
