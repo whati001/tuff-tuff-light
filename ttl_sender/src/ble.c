@@ -38,7 +38,7 @@ int ttl_ble_init() {
     return TTL_ERR;
   }
   /* Create a coded non-connectable non-scannable advertising set */
-  err = bt_le_ext_adv_create(BT_LE_EXT_ADV_CODED_NCONN_NAME, NULL, &adv);
+  err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN_NAME, NULL, &adv);
   if (err) {
     LOG_ERR("Failed to create advertising set (err %d)", err);
     return TTL_ERR;

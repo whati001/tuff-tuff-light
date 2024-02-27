@@ -244,7 +244,7 @@ int ttl_ble_start() {
 
   /* Start scanning for coded BLE advertiser */
   LOG_INF("Requested to start scanning for BLE periodic advertiser");
-  err = bt_le_scan_start(BT_LE_SCAN_CODED_ACTIVE, NULL);
+  err = bt_le_scan_start(BT_LE_SCAN_ACTIVE, NULL);
   if (err) {
     LOG_ERR("Failed to start BLE scanning (err %d)\n", err);
     return TTL_ERR;
