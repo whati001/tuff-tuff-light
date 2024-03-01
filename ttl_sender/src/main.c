@@ -25,11 +25,11 @@ int main(void) {
   }
   ttl_gpio_register_cb(ttl_ble_upd_status);
 
-  err = ttl_ble_start();
-  if (TTL_OK != err) {
-    LOG_ERR("Failed to start the TTLight BLE advertisement\n");
-    return TTL_ERR;
-  }
+  // err = ttl_ble_start();
+  // if (TTL_OK != err) {
+  //   LOG_ERR("Failed to start the TTLight BLE advertisement\n");
+  //   return TTL_ERR;
+  // }
 
   err = ttl_gpio_start();
   if (TTL_OK != err) {

@@ -13,23 +13,81 @@
 
 LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_INF);
 
-static struct {
-  bool initiated;
-  bool running;
-} ttl_ble = {0, 0};
+#define BUF_ALLOC_TIMEOUT (10)                       /* milliseconds */
+#define BIG_TERMINATE_TIMEOUT_US (60 * USEC_PER_SEC) /* microseconds */
+#define BIG_SDU_INTERVAL_US (10000)
 
+NET_BUF_POOL_FIXED_DEFINE(bis_tx_pool, 1,
+                          BT_ISO_SDU_BUF_SIZE(CONFIG_BT_ISO_TX_MTU),
+                          CONFIG_BT_CONN_TX_USER_DATA_SIZE, NULL);
+
+static K_SEM_DEFINE(sem_big_cmplt, 0, 1);
+static K_SEM_DEFINE(sem_big_term, 0, 1);
+static K_SEM_DEFINE(sem_iso_data, CONFIG_BT_ISO_TX_BUF_COUNT,
+                    CONFIG_BT_ISO_TX_BUF_COUNT);
+
+static uint8_t running;
+static uint16_t seq_num;
 static ttl_state_t ttl_state;
+static K_SEM_DEFINE(sem_ttl_state, 1, 1);
+static uint8_t iso_data[sizeof(ttl_state)] = {0};
 
-static struct bt_le_ext_adv *adv;
-static const struct bt_data ad[] = {
-    BT_DATA(BT_DATA_MANUFACTURER_DATA, &ttl_state, sizeof(ttl_state_t)),
+// ttl ble thread objects
+#define TTL_BLE_STACK_SIZE (2048)
+static K_KERNEL_STACK_DEFINE(ttl_ble_thread_stack, TTL_BLE_STACK_SIZE);
+static struct k_thread ttl_ble_thread_data;
+
+static void iso_connected(struct bt_iso_chan *chan) {
+  LOG_INF("ISO Channel %p connected", chan);
+  seq_num = 0U;
+  k_sem_give(&sem_big_cmplt);
+}
+
+static void iso_disconnected(struct bt_iso_chan *chan, uint8_t reason) {
+  LOG_INF("ISO Channel %p disconnected with reason 0x%02x", chan, reason);
+  k_sem_give(&sem_big_term);
+}
+
+static void iso_sent(struct bt_iso_chan *chan) { k_sem_give(&sem_iso_data); }
+
+static struct bt_iso_chan_ops iso_ops = {
+    .connected = iso_connected,
+    .disconnected = iso_disconnected,
+    .sent = iso_sent,
 };
 
-int ttl_ble_init() {
-  int err;
-  LOG_INF("TTLight starts to initiate the BLE Stack");
+static struct bt_iso_chan_io_qos iso_tx_qos = {
+    .sdu = sizeof(uint32_t), /* bytes */
+    .rtn = 1,
+    .phy = BT_GAP_LE_PHY_2M,
+};
 
-  // #TODO: stop advertising is currently running
+static struct bt_iso_chan_qos bis_iso_qos = {
+    .tx = &iso_tx_qos,
+};
+
+static struct bt_iso_chan bis_iso_chan = {
+    .ops = &iso_ops,
+    .qos = &bis_iso_qos,
+};
+
+static struct bt_iso_chan *bis[] = {&bis_iso_chan};
+
+static struct bt_iso_big_create_param big_create_param = {
+    .num_bis = 1,
+    .bis_channels = bis,
+    .interval = BIG_SDU_INTERVAL_US, /* in microseconds */
+    .latency = 10,                   /* in milliseconds */
+    .packing = 0,                    /* 0 - sequential, 1 - interleaved */
+    .framing = 0,                    /* 0 - unframed, 1 - framed */
+};
+
+static int ttl_ble_enable() {
+  struct bt_le_ext_adv *adv;
+  struct bt_iso_big *big;
+  int err;
+
+  LOG_INF("Starting to initiate BLE stack for TTLight");
 
   /* Initialize the Bluetooth Subsystem */
   err = bt_enable(NULL);
@@ -37,7 +95,8 @@ int ttl_ble_init() {
     LOG_ERR("Bluetooth init failed (err %d)", err);
     return TTL_ERR;
   }
-  /* Create a coded non-connectable non-scannable advertising set */
+  // err = bt_le_ext_adv_create(BT_LE_EXT_ADV_CODED_NCONN_NAME, NULL, &adv);
+  /* Create a non-connectable non-scannable advertising set */
   err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN_NAME, NULL, &adv);
   if (err) {
     LOG_ERR("Failed to create advertising set (err %d)", err);
@@ -45,13 +104,7 @@ int ttl_ble_init() {
   }
 
   /* Set periodic advertising parameters */
-  err = bt_le_per_adv_set_param(
-      adv, BT_LE_PER_ADV_PARAM(0xa, 0xf, BT_LE_PER_ADV_OPT_NONE));
-
-  // err = bt_le_per_adv_set_param(
-  //     adv, BT_LE_PER_ADV_PARAM(BT_GAP_PER_ADV_FAST_INT_MIN_1,
-  //                              BT_GAP_PER_ADV_FAST_INT_MAX_1,
-  //                              BT_LE_PER_ADV_OPT_NONE));
+  err = bt_le_per_adv_set_param(adv, BT_LE_PER_ADV_DEFAULT);
   if (err) {
     LOG_ERR("Failed to set periodic advertising parameters (err %d)", err);
     return TTL_ERR;
@@ -64,36 +117,6 @@ int ttl_ble_init() {
     return TTL_ERR;
   }
 
-  /* Set Periodic Advertising Data */
-  err = bt_le_per_adv_set_data(adv, ad, ARRAY_SIZE(ad));
-  if (err) {
-    LOG_INF("Failed (err %d)", err);
-    return 0;
-  }
-
-  LOG_INF("Extended periodic advertisement channel created.");
-
-  /* Set Periodic Advertising Data */
-  err = bt_le_per_adv_set_data(adv, ad, ARRAY_SIZE(ad));
-  if (err) {
-    LOG_INF("Failed (err %d)", err);
-    return 0;
-  }
-
-  ttl_ble.initiated = true;
-
-  return TTL_OK;
-}
-
-int ttl_ble_start() {
-  int err;
-  LOG_INF("TTLight requested to advertise TTLState via BLE Stack");
-
-  if (false == ttl_ble.initiated) {
-    LOG_ERR("TTLight BLE stack not initiated yet");
-    return TTL_ERR;
-  }
-
   /* Start extended advertising */
   err = bt_le_ext_adv_start(adv, BT_LE_EXT_ADV_START_DEFAULT);
   if (err) {
@@ -101,52 +124,103 @@ int ttl_ble_start() {
     return TTL_ERR;
   }
 
-  LOG_INF("TTLight started to advertise TTLState via BLE");
-  ttl_ble.running = true;
+  /* Create BIG */
+  err = bt_iso_big_create(adv, &big_create_param, &big);
+  if (err) {
+    LOG_ERR("Failed to create BIG (err %d)", err);
+    return TTL_ERR;
+  }
+
+  LOG_INF("Waiting for BIG complete chan...");
+  err = k_sem_take(&sem_big_cmplt, K_FOREVER);
+  if (err) {
+    LOG_ERR("failed (err %d)", err);
+    return TTL_ERR;
+  }
+  LOG_INF("BIG create complete chan.\n");
 
   return TTL_OK;
 }
 
-int tll_ble_stop() {
-  int err = 0;
-  LOG_INF("TTLight requested to stop advertising TTLState via BLE Stack");
+static int ttl_ble_broadcast() {
+  while (running) {
+    struct net_buf *buf;
+    int ret;
 
-  if (true == ttl_ble.initiated && true == ttl_ble.running) {
-    /* Stop extended advertising */
-    err = bt_le_ext_adv_stop(adv);
-    if (err) {
-      LOG_INF("Failed to stop extended advertising "
-              "(err %d)",
-              err);
-      return TTL_ERR;
+    buf = net_buf_alloc(&bis_tx_pool, K_MSEC(BUF_ALLOC_TIMEOUT));
+    if (!buf) {
+      printk("Data buffer allocate timeout on channel");
+      return 0;
     }
+
+    ret = k_sem_take(&sem_iso_data, K_FOREVER);
+    if (ret) {
+      printk("k_sem_take for ISO data sent failed\n");
+      net_buf_unref(buf);
+      return 0;
+    }
+
+    net_buf_reserve(buf, BT_ISO_CHAN_SEND_RESERVE);
+    // NOTE: we do not check the error code, because it anyway waits FOREVER
+    k_sem_take(&sem_ttl_state, K_FOREVER);
+    sys_put_le32(ttl_state.entire, iso_data);
+    k_sem_give(&sem_ttl_state);
+    net_buf_add_mem(buf, iso_data, sizeof(iso_data));
+
+    ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num, BT_ISO_TIMESTAMP_NONE);
+    if (ret < 0) {
+      printk("Unable to broadcast data on channel with error code: %d", ret);
+      net_buf_unref(buf);
+      return 0;
+    }
+
+    LOG_DBG("Sending value %d\n", ttl_state.entire);
+    seq_num++;
   }
 
-  LOG_INF("TTLight stopped to advertise TTLState via BLE");
-  ttl_ble.running = false;
-  ttl_ble.initiated = false;
+  return TTL_OK;
+}
+
+static void ttl_ble_thread_main() {
+  int ret = 0;
+  LOG_INF("TTLight starts to initiate the BLE Stack");
+  ret = ttl_ble_enable();
+  if (TTL_OK != ret) {
+    LOG_ERR("Failed to initiate the TTLight BLE stack");
+    return;
+  }
+  LOG_INF("TTLight started the BLE Stack successfully");
+
+  LOG_INF("TTLight starts to broadcast current state");
+  ret = ttl_ble_broadcast();
+  if (TTL_OK != ret) {
+    LOG_ERR("Failed to broadcast the current TTLight BLE state");
+    return;
+  }
+  LOG_INF("TTLight finished to broadcast current state");
+
+  return;
+}
+
+int ttl_ble_init() {
+  running = 1;
+  /* Start a thread to offload disk ops */
+  k_thread_create(&ttl_ble_thread_data, ttl_ble_thread_stack,
+                  TTL_BLE_STACK_SIZE, (k_thread_entry_t)ttl_ble_thread_main,
+                  NULL, NULL, NULL, -5, 0, K_NO_WAIT);
+  k_thread_name_set(&ttl_ble_thread_data, "ttl_ble_worker");
 
   return TTL_OK;
 }
 
 int ttl_ble_upd_status(ttl_state_t state) {
-  int err;
-
-  if (false == ttl_ble.initiated) {
-    LOG_WRN("TTLight BLE stack not initiated yet");
-    return TTL_ERR;
-  }
-
   if (state.entire != ttl_state.entire) {
     LOG_INF("Updated TTLight state to:");
     PRINT_TTL_STATE(state);
 
+    k_sem_take(&sem_ttl_state, K_FOREVER);
     ttl_state = state;
-    err = bt_le_per_adv_set_data(adv, ad, ARRAY_SIZE(ad));
-    if (err) {
-      LOG_INF("Failed (err %d)", err);
-      return 0;
-    }
+    k_sem_give(&sem_ttl_state);
   }
 
   return TTL_OK;
