@@ -38,24 +38,31 @@ void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t *esf) {
  * a movement is recognized.
  */
 static int ttl_power_down() {
-  // int err = ttl_accel_init();
-  // if (TTL_OK != err) {
-  //   LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
-  //   return TTL_ERR;
-  // }
-  int rc = gpio_pin_configure_dt(&reboot_pin, GPIO_INPUT);
-  if (rc < 0) {
-    LOG_ERR("Could not configure sw0 GPIO (%d)\n", rc);
+  int err;
+
+  // stop all components
+  ttl_ble_stop();
+  ttl_led_stop();
+
+  err = ttl_accel_init();
+  if (TTL_OK != err) {
+    LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
+    return TTL_ERR;
+  }
+  err = gpio_pin_configure_dt(&reboot_pin, GPIO_INPUT);
+  if (err < 0) {
+    LOG_ERR("Could not configure sw0 GPIO (%d)\n", err);
     return TTL_ERR;
   }
 
-  rc = gpio_pin_interrupt_configure_dt(&reboot_pin, GPIO_INT_LEVEL_ACTIVE);
-  if (rc < 0) {
-    LOG_ERR("Could not configure sw0 GPIO interrupt (%d)\n", rc);
+  err = gpio_pin_interrupt_configure_dt(&reboot_pin, GPIO_INT_LEVEL_ACTIVE);
+  if (err < 0) {
+    LOG_ERR("Could not configure sw0 GPIO interrupt (%d)\n", err);
     return TTL_ERR;
   }
 
   // perform some power down if no ble was found for a given time
+  k_msleep(2000);
   sys_poweroff();
 
   return TTL_OK;
@@ -76,6 +83,7 @@ int main(void) {
     LOG_ERR("Failed to initialize the TTLight BLE stack\n");
     return TTL_ERR;
   }
+  LOG_INF("Initialized TTLight BLE stack properly");
 
   err = ttl_led_init();
   if (TTL_OK != err) {
@@ -83,17 +91,33 @@ int main(void) {
     goto exit;
   }
   ttl_ble_register_cb(ttl_led_upd_status);
+  LOG_INF("Initialized TTLight LED stack properly");
+
+  err = ttl_ble_start();
+  if (TTL_OK != err) {
+    LOG_ERR("Failed to start TTLight BLE stack");
+    return TTL_ERR;
+  }
+  LOG_INF("Started TTLight BLE stack properly");
+
+  err = ttl_led_start();
+  if (TTL_OK != err) {
+    LOG_ERR("Failed to start TTLight LED stack");
+    return TTL_ERR;
+  }
+  LOG_INF("Started TTLight LED stack properly");
 
 exit:
   while (1) {
     last_packet_time = ttl_ble_latest_packet_date();
     elapsed_time = k_uptime_delta(&last_packet_time);
     LOG_INF("Elapsed time: %lld", elapsed_time);
-    k_msleep(10000);
+    k_msleep(1000);
     if (elapsed_time >= (CONFIG_TTL_SHUTDOWN_TIMEOUT * 1000)) {
       err = ttl_power_down();
       if (TTL_OK != err) {
         LOG_ERR("Failed to shutdown, let's force a restart of the board");
+        k_msleep(2000);
         sys_reboot(SYS_REBOOT_COLD);
       }
     }

@@ -18,8 +18,8 @@ LOG_MODULE_REGISTER(ttl_led, LOG_LEVEL_INF);
 #define TTL_LED_STACK_SIZE (2048)
 static K_KERNEL_STACK_DEFINE(ttl_led_thread_stack, TTL_LED_STACK_SIZE);
 static struct k_thread ttl_led_thread_data;
+static K_MUTEX_DEFINE(ttl_led_running);
 
-static uint8_t running;
 static uint8_t ttl_state_changed;
 static ttl_state_t ttl_state;
 
@@ -84,6 +84,12 @@ static void inline ttl_led_disconnect(struct ttl_pwm_led_t *led) {
   nrfx_pwm->p_reg->PSEL.OUT[pwm->channel] |= (0x1 << PWM_PSEL_OUT_CONNECT_Pos);
 }
 
+static void ttl_led_disconnect_all() {
+  for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
+    ttl_led_disconnect(&ttl_pwm_leds[idx]);
+  }
+}
+
 static int ttl_led_enable() {
   int ret = TTL_OK;
   for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
@@ -110,26 +116,24 @@ static int ttl_led_enable() {
   ttl_state.parts.bits.rdrive = 1;
   ttl_state.parts.bits.ldrive = 1;
 
+  // lock mutex to block thread loop
+  k_mutex_lock(&ttl_led_running, K_FOREVER);
+  // ttl_led_disconnect_all();
+
   return TTL_OK;
 }
 
-static void ttl_led_disconnect_all() {
-  for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
-    ttl_led_disconnect(&ttl_pwm_leds[idx]);
-  }
-}
-
-static int ttl_led_set() {
+static int ttl_led_loop() {
   ttl_state_t state;
   uint8_t state_changed;
-  while (running) {
+
+  while (true) {
     k_sem_take(&sem_ttl_state, K_FOREVER);
     state_changed = ttl_state_changed;
-    // TODO: add logic to differentiate if this is a right or left light
     state = ttl_state;
     k_sem_give(&sem_ttl_state);
 
-    if (state_changed) {
+    if (true == state_changed) {
       LOG_INF("Received trailer light state update to:");
       PRINT_TTL_STATE(state);
       ttl_state_changed = 0;
@@ -137,7 +141,8 @@ static int ttl_led_set() {
       // disconnect all LEDs
       ttl_led_disconnect_all();
 
-      if (state.parts.bits.rturn) {
+      // TODO: add logic to differentiate if this is a right or left light
+      if (state.parts.bits.lturn) {
         LOG_INF("Enable DIRECTION LIGHT");
         ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER]);
       }
@@ -162,36 +167,41 @@ static int ttl_led_set() {
   return TTL_OK;
 }
 
-static void ttl_led_thread_main() {
+int ttl_led_init() {
   int ret = 0;
-  LOG_INF("TTLight starts to initiate the GPIO Stack");
+  ttl_state.entire = 0;
+  ttl_state_changed = 0;
+
+  LOG_INF("TTLight starts to initiate the GPIO stack");
   ret = ttl_led_enable();
   if (TTL_OK != ret) {
     LOG_ERR("Failed to initiate the TTLight GPIO stack");
-    return;
+    return TTL_ERR;
   }
-  LOG_INF("TTLight started the GPIO Stack successfully");
+  LOG_INF("TTLight initiated the GPIO stack successfully");
 
-  LOG_INF("TTLight starts to set current GPIO state");
-  ret = ttl_led_set();
-  if (TTL_OK != ret) {
-    LOG_ERR("Failed to set the current TTLight GPIO state");
-    return;
-  }
-  LOG_INF("TTLight finished to set current GPIO state");
-
-  return;
+  return TTL_OK;
 }
 
-int ttl_led_init() {
-  running = 1;
-  ttl_state.entire = 0;
-  ttl_state_changed = 0;
+int ttl_led_start() {
   /* Start a thread to offload disk ops */
   k_thread_create(&ttl_led_thread_data, ttl_led_thread_stack,
-                  TTL_LED_STACK_SIZE, (k_thread_entry_t)ttl_led_thread_main,
-                  NULL, NULL, NULL, 2, 0, K_NO_WAIT);
+                  TTL_LED_STACK_SIZE, (k_thread_entry_t)ttl_led_loop, NULL,
+                  NULL, NULL, 2, 0, K_NO_WAIT);
   k_thread_name_set(&ttl_led_thread_data, "ttl_ble_worker");
+
+  return TTL_OK;
+}
+
+int ttl_led_stop() {
+  // kill the thread
+  k_thread_abort(&ttl_led_thread_data);
+
+  // set all LEDs to off
+  for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
+    pwm_set_dt(&ttl_pwm_leds[idx].pwm, ttl_pwm_leds[idx].pwm_periode, 0);
+  }
+  ttl_led_disconnect_all();
 
   return TTL_OK;
 }
