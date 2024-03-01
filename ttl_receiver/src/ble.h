@@ -10,23 +10,9 @@
  * This will enable the entire BLE with ISO stack
  * and initialize a new BIS and starts sending the current
  * ttl state to the receivers
- * @return TTL_OK on success, else TTL_ERR
+ * @return TTL_OK on success, else some error code
  */
 int ttl_ble_init();
-
-/**
- * @brief Start to listen for TTLight periodic advertiser and establish a new
- * SYNC channel to receive TTLState updates.
- * @return TTL_OK on success, else TTL_ERR
- */
-int ttl_ble_start();
-
-/**
- * @brief Stop to listen for periodic TTLight advertiser and terminate existing
- * SYNC channel.
- * @return TTL_OK on success, else TTL_ERR
- */
-int ttl_ble_stop();
 
 /**
  * @brief Register new callback function, triggered per received data package

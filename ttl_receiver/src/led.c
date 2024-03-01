@@ -20,10 +20,9 @@ static K_KERNEL_STACK_DEFINE(ttl_led_thread_stack, TTL_LED_STACK_SIZE);
 static struct k_thread ttl_led_thread_data;
 static K_MUTEX_DEFINE(ttl_led_running);
 
-static uint8_t ttl_state_changed;
 static ttl_state_t ttl_state;
 
-static K_SEM_DEFINE(sem_ttl_state, 1, 1);
+static K_SEM_DEFINE(sem_ttl_state, 0, 1);
 
 // PWM LEDs devices
 struct ttl_pwm_led_t {
@@ -111,7 +110,6 @@ static int ttl_led_enable() {
   }
 
   // init state
-  ttl_state_changed = 1;
   ttl_state.entire = 0;
   ttl_state.parts.bits.rdrive = 1;
   ttl_state.parts.bits.ldrive = 1;
@@ -125,43 +123,37 @@ static int ttl_led_enable() {
 
 static int ttl_led_loop() {
   ttl_state_t state;
-  uint8_t state_changed;
 
   while (true) {
     k_sem_take(&sem_ttl_state, K_FOREVER);
-    state_changed = ttl_state_changed;
     state = ttl_state;
-    k_sem_give(&sem_ttl_state);
 
-    if (true == state_changed) {
-      LOG_INF("Received trailer light state update to:");
-      PRINT_TTL_STATE(state);
-      ttl_state_changed = 0;
+    LOG_INF("Received trailer light state update to:");
+    PRINT_TTL_STATE(state);
 
-      // disconnect all LEDs
-      ttl_led_disconnect_all();
+    // disconnect all LEDs
+    ttl_led_disconnect_all();
 
-      // TODO: add logic to differentiate if this is a right or left light
-      if (state.parts.bits.lturn) {
-        LOG_INF("Enable DIRECTION LIGHT");
-        ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER]);
-      }
-      // TODO: change to a if
-      else if (state.parts.bits.breaks) {
-        LOG_INF("Enable BREAK LIGHT");
-        ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_BREAK]);
-      } else if (state.parts.bits.reverse) {
-        LOG_INF("Enable REVERSE LIGHT");
-        ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_REVERSE]);
-      } else if (state.parts.bits.ldrive) {
-        LOG_INF("Enable DRIVE LIGHT");
-        ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DRIVE]);
-      } else {
-        LOG_INF("Nothing to enable???");
-      }
+    // TODO: add logic to differentiate if this is a right or left light
+    if (state.parts.bits.lturn) {
+      LOG_INF("Enable DIRECTION LIGHT");
+      ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER]);
+    }
+    // TODO: change to a if
+    else if (state.parts.bits.breaks) {
+      LOG_INF("Enable BREAK LIGHT");
+      ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_BREAK]);
+    } else if (state.parts.bits.reverse) {
+      LOG_INF("Enable REVERSE LIGHT");
+      ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_REVERSE]);
+    } else if (state.parts.bits.ldrive) {
+      LOG_INF("Enable DRIVE LIGHT");
+      ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DRIVE]);
+    } else {
+      LOG_INF("Nothing to enable???");
     }
 
-    k_msleep(TTL_POLLING_INTERVAL_MS);
+    k_sem_give(&sem_ttl_state);
   }
 
   return TTL_OK;
@@ -170,7 +162,6 @@ static int ttl_led_loop() {
 int ttl_led_init() {
   int ret = 0;
   ttl_state.entire = 0;
-  ttl_state_changed = 0;
 
   LOG_INF("TTLight starts to initiate the GPIO stack");
   ret = ttl_led_enable();
@@ -208,8 +199,6 @@ int ttl_led_stop() {
 
 int inline ttl_led_upd_status(ttl_state_t state) {
   if (state.entire != ttl_state.entire) {
-    k_sem_take(&sem_ttl_state, K_FOREVER);
-    ttl_state_changed = 1;
     ttl_state = state;
     k_sem_give(&sem_ttl_state);
     PRINT_TTL_STATE(ttl_state);

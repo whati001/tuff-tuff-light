@@ -41,7 +41,7 @@ static int ttl_power_down() {
   int err;
 
   // stop all components
-  ttl_ble_stop();
+  // ttl_ble_stop();
   ttl_led_stop();
 
   err = ttl_accel_init();
@@ -93,12 +93,12 @@ int main(void) {
   ttl_ble_register_cb(ttl_led_upd_status);
   LOG_INF("Initialized TTLight LED stack properly");
 
-  err = ttl_ble_start();
-  if (TTL_OK != err) {
-    LOG_ERR("Failed to start TTLight BLE stack");
-    return TTL_ERR;
-  }
-  LOG_INF("Started TTLight BLE stack properly");
+  // err = ttl_ble_start();
+  // if (TTL_OK != err) {
+  //   LOG_ERR("Failed to start TTLight BLE stack");
+  //   return TTL_ERR;
+  // }
+  // LOG_INF("Started TTLight BLE stack properly");
 
   err = ttl_led_start();
   if (TTL_OK != err) {
@@ -113,14 +113,14 @@ exit:
     elapsed_time = k_uptime_delta(&last_packet_time);
     LOG_INF("Elapsed time: %lld", elapsed_time);
     k_msleep(1000);
-    if (elapsed_time >= (CONFIG_TTL_SHUTDOWN_TIMEOUT * 1000)) {
-      err = ttl_power_down();
-      if (TTL_OK != err) {
-        LOG_ERR("Failed to shutdown, let's force a restart of the board");
-        k_msleep(2000);
-        sys_reboot(SYS_REBOOT_COLD);
-      }
-    }
+    // if (elapsed_time >= (CONFIG_TTL_SHUTDOWN_TIMEOUT * 1000)) {
+    //   err = ttl_power_down();
+    //   if (TTL_OK != err) {
+    //     LOG_ERR("Failed to shutdown, let's force a restart of the board");
+    //     k_msleep(2000);
+    //     sys_reboot(SYS_REBOOT_COLD);
+    //   }
+    // }
   }
   return 0;
 }

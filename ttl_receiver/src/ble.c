@@ -5,10 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <sys/types.h>
 #include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/iso.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/byteorder.h>
 
@@ -22,22 +24,34 @@ LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_INF);
 static K_KERNEL_STACK_DEFINE(ttl_ble_thread_stack, TTL_BLE_STACK_SIZE);
 static struct k_thread ttl_ble_thread_data;
 
+uint8_t running;
 static ttl_upd_state_cb_t ttl_upd_state_cb;
 static int64_t ttl_iso_last_data;
-static bool ttl_ble_connected;
+static bool ttl_iso_connected;
+
+#define TIMEOUT_SYNC_CREATE K_SECONDS(10)
+#define NAME_LEN 30
+
+#define BT_LE_SCAN_CUSTOM                                                      \
+  BT_LE_SCAN_PARAM(BT_LE_SCAN_TYPE_ACTIVE, BT_LE_SCAN_OPT_NONE,                \
+                   BT_GAP_SCAN_FAST_INTERVAL, BT_GAP_SCAN_FAST_WINDOW)
+
+#define PA_RETRY_COUNT 6
 
 static bool per_adv_found;
+static bool per_adv_lost;
 static bt_addr_le_t per_addr;
 static uint8_t per_sid;
-static struct bt_le_per_adv_sync_param sync_create_param;
-static struct bt_le_per_adv_sync *sync;
+static uint32_t per_interval_us;
+
+static uint32_t iso_recv_count;
 
 static K_SEM_DEFINE(sem_per_adv, 0, 1);
 static K_SEM_DEFINE(sem_per_sync, 0, 1);
 static K_SEM_DEFINE(sem_per_sync_lost, 0, 1);
-
-#define TIMEOUT_SYNC_CREATE K_SECONDS(10)
-#define NAME_LEN 30
+static K_SEM_DEFINE(sem_per_big_info, 0, 1);
+static K_SEM_DEFINE(sem_big_sync, 0, 1);
+static K_SEM_DEFINE(sem_big_sync_lost, 0, 1);
 
 static bool data_cb(struct bt_data *data, void *user_data) {
   char *name = user_data;
@@ -82,7 +96,7 @@ static void scan_recv(const struct bt_le_scan_recv_info *info,
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
   LOG_DBG("[DEVICE]: %s, AD evt type %u, Tx Pwr: %i, RSSI %i %s "
           "C:%u S:%u D:%u SR:%u E:%u Prim: %s, Secn: %s, "
-          "Interval: 0x%04x (%u ms), SID: %u\n",
+          "Interval: 0x%04x (%u us), SID: %u\n",
           le_addr, info->adv_type, info->tx_power, info->rssi, name,
           (info->adv_props & BT_GAP_ADV_PROP_CONNECTABLE) != 0,
           (info->adv_props & BT_GAP_ADV_PROP_SCANNABLE) != 0,
@@ -90,12 +104,13 @@ static void scan_recv(const struct bt_le_scan_recv_info *info,
           (info->adv_props & BT_GAP_ADV_PROP_SCAN_RESPONSE) != 0,
           (info->adv_props & BT_GAP_ADV_PROP_EXT_ADV) != 0,
           phy2str(info->primary_phy), phy2str(info->secondary_phy),
-          info->interval, info->interval * 5 / 4, info->sid);
+          info->interval, BT_CONN_INTERVAL_TO_US(info->interval), info->sid);
 
   if (!per_adv_found && info->interval) {
     per_adv_found = true;
 
     per_sid = info->sid;
+    per_interval_us = BT_CONN_INTERVAL_TO_US(info->interval);
     bt_addr_le_copy(&per_addr, info->addr);
 
     k_sem_give(&sem_per_adv);
@@ -112,13 +127,12 @@ static void sync_cb(struct bt_le_per_adv_sync *sync,
 
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
 
-  printk("PER_ADV_SYNC[%u]: [DEVICE]: %s synced, "
-         "Interval 0x%04x (%u ms), PHY %s\n",
-         bt_le_per_adv_sync_get_index(sync), le_addr, info->interval,
-         info->interval * 5 / 4, phy2str(info->phy));
+  LOG_INF("PER_ADV_SYNC[%u]: [DEVICE]: %s synced, "
+          "Interval 0x%04x (%u ms), PHY %s\n",
+          bt_le_per_adv_sync_get_index(sync), le_addr, info->interval,
+          info->interval * 5 / 4, phy2str(info->phy));
 
   k_sem_give(&sem_per_sync);
-  ttl_ble_connected = true;
 }
 
 static void term_cb(struct bt_le_per_adv_sync *sync,
@@ -127,11 +141,11 @@ static void term_cb(struct bt_le_per_adv_sync *sync,
 
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
 
-  printk("PER_ADV_SYNC[%u]: [DEVICE]: %s sync terminated\n",
-         bt_le_per_adv_sync_get_index(sync), le_addr);
+  LOG_INF("PER_ADV_SYNC[%u]: [DEVICE]: %s sync terminated\n",
+          bt_le_per_adv_sync_get_index(sync), le_addr);
 
+  per_adv_lost = true;
   k_sem_give(&sem_per_sync_lost);
-  ttl_ble_connected = false;
 }
 
 static void recv_cb(struct bt_le_per_adv_sync *sync,
@@ -143,145 +157,267 @@ static void recv_cb(struct bt_le_per_adv_sync *sync,
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
   bin2hex(buf->data, buf->len, data_str, sizeof(data_str));
 
-  LOG_DBG("PER_ADV_SYNC[%u]: [DEVICE]: %s, tx_power %i, "
+  LOG_INF("PER_ADV_SYNC[%u]: [DEVICE]: %s, tx_power %i, "
           "RSSI %i, CTE %u, data length %u, data: %s\n",
           bt_le_per_adv_sync_get_index(sync), le_addr, info->tx_power,
           info->rssi, info->cte_type, buf->len, data_str);
+}
 
-  // TODO: use some better parsing logic
-  // BLE advertizes the data as following length|id|data0|..|dataN
-  // so the ttl_state look as follows: 05|FF|..data..
-  ttl_state_t state;
-  uint16_t ttl_state_size = sizeof(ttl_state_t) + 2;
+static void biginfo_cb(struct bt_le_per_adv_sync *sync,
+                       const struct bt_iso_biginfo *biginfo) {
+  char le_addr[BT_ADDR_LE_STR_LEN];
 
-  if (buf->len == ttl_state_size) {
-    state.entire = sys_get_le32(buf->data + 2);
+  bt_addr_le_to_str(biginfo->addr, le_addr, sizeof(le_addr));
+
+  LOG_DBG("BIG INFO[%u]: [DEVICE]: %s, sid 0x%02x, "
+          "num_bis %u, nse %u, interval 0x%04x (%u ms), "
+          "bn %u, pto %u, irc %u, max_pdu %u, "
+          "sdu_interval %u us, max_sdu %u, phy %s, "
+          "%s framing, %sencrypted\n",
+          bt_le_per_adv_sync_get_index(sync), le_addr, biginfo->sid,
+          biginfo->num_bis, biginfo->sub_evt_count, biginfo->iso_interval,
+          (biginfo->iso_interval * 5 / 4), biginfo->burst_number,
+          biginfo->offset, biginfo->rep_count, biginfo->max_pdu,
+          biginfo->sdu_interval, biginfo->max_sdu, phy2str(biginfo->phy),
+          biginfo->framing ? "with" : "without",
+          biginfo->encryption ? "" : "not ");
+
+  k_sem_give(&sem_per_big_info);
+}
+
+static struct bt_le_per_adv_sync_cb sync_callbacks = {
+    .synced = sync_cb,
+    .term = term_cb,
+    .recv = recv_cb,
+    .biginfo = biginfo_cb,
+};
+
+static void iso_recv(struct bt_iso_chan *chan,
+                     const struct bt_iso_recv_info *info, struct net_buf *buf) {
+  ttl_state_t state; /* only valid if the data is a counter */
+
+  if (buf->len == sizeof(state)) {
+    state.entire = sys_get_le32(buf->data);
+    LOG_DBG("Incoming data channel %p flags 0x%x seq_num %u ts %u len %u", chan,
+            info->flags, info->seq_num, info->ts, buf->len);
 
     if (ttl_upd_state_cb) {
       (*ttl_upd_state_cb)(state);
       ttl_iso_last_data = k_uptime_get();
     }
   }
+  iso_recv_count++;
 }
 
-static struct bt_le_per_adv_sync_cb sync_callbacks = {
-    .synced = sync_cb, .term = term_cb, .recv = recv_cb};
+static void iso_connected(struct bt_iso_chan *chan) {
+  LOG_INF("ISO Channel %p connected\n", chan);
+  ttl_iso_connected = true;
+  k_sem_give(&sem_big_sync);
+}
 
-int ttl_ble_init() {
+static void iso_disconnected(struct bt_iso_chan *chan, uint8_t reason) {
+  LOG_INF("ISO Channel %p disconnected with reason 0x%02x\n", chan, reason);
+  if (reason != BT_HCI_ERR_OP_CANCELLED_BY_HOST) {
+    ttl_iso_connected = false;
+    k_sem_give(&sem_big_sync_lost);
+  }
+}
+
+static struct bt_iso_chan_ops iso_ops = {
+    .recv = iso_recv,
+    .connected = iso_connected,
+    .disconnected = iso_disconnected,
+};
+
+static struct bt_iso_chan_io_qos iso_rx_qos;
+
+static struct bt_iso_chan_qos bis_iso_qos = {
+    .rx = &iso_rx_qos,
+};
+
+static struct bt_iso_chan bis_iso_chan = {
+    .ops = &iso_ops,
+    .qos = &bis_iso_qos,
+};
+
+static struct bt_iso_chan *bis[] = {&bis_iso_chan};
+
+static struct bt_iso_big_sync_param big_sync_param = {
+    .bis_channels = bis,
+    .num_bis = 1,
+    .bis_bitfield = (BIT_MASK(1) << 1),
+    .mse = 1,
+    .sync_timeout = 100, /* in 10 ms units */
+};
+
+void ttl_ble_thread_main() {
+  struct bt_le_per_adv_sync_param sync_create_param;
+  struct bt_le_per_adv_sync *sync;
+  struct bt_iso_big *big;
+  uint32_t sem_timeout_us;
   int err;
-  ttl_upd_state_cb = NULL;
-  ttl_ble_connected = false;
-  ttl_iso_last_data = k_uptime_get();
+
+  iso_recv_count = 0;
+
+  LOG_INF("Starting Synchronized Receiver Demo\n");
 
   /* Initialize the Bluetooth Subsystem */
   err = bt_enable(NULL);
   if (err) {
-    LOG_ERR("Bluetooth init failed (err %d)\n", err);
-    return TTL_ERR;
+    LOG_INF("Bluetooth init failed (err %d)\n", err);
+    return;
   }
 
+  LOG_INF("Scan callbacks register...");
   bt_le_scan_cb_register(&scan_callbacks);
-  LOG_INF("Scan callbacks registered successfully");
+  LOG_INF("success.\n");
 
+  LOG_INF("Periodic Advertising callbacks register...");
   bt_le_per_adv_sync_cb_register(&sync_callbacks);
-  LOG_INF("Periodic Advertising callbacks registered successfully");
+  LOG_INF("Success.\n");
 
-  return TTL_OK;
-}
-
-static void ttl_ble_run() {
-  int err;
   do {
-    // wait until we have found a periodic advertiser
+    per_adv_lost = false;
+
+    LOG_INF("Start scanning...");
+    err = bt_le_scan_start(BT_LE_SCAN_CUSTOM, NULL);
+    if (err) {
+      LOG_INF("failed (err %d)\n", err);
+      return;
+    }
+    LOG_INF("success.\n");
+
+    LOG_INF("Waiting for periodic advertising...\n");
     per_adv_found = false;
     err = k_sem_take(&sem_per_adv, K_FOREVER);
     if (err) {
-      LOG_ERR("Failed to find a periodic advertiser, due to timeout (err %d)",
-              err);
+      LOG_INF("failed (err %d)\n", err);
       return;
     }
-    LOG_INF("Found valid TTLight periodic advertising.");
+    LOG_INF("Found periodic advertising.\n");
 
+    LOG_INF("Stop scanning...");
+    err = bt_le_scan_stop();
+    if (err) {
+      LOG_INF("failed (err %d)\n", err);
+      return;
+    }
+    LOG_INF("success.\n");
+
+    LOG_INF("Creating Periodic Advertising Sync...");
     bt_addr_le_copy(&sync_create_param.addr, &per_addr);
     sync_create_param.options = 0;
     sync_create_param.sid = per_sid;
     sync_create_param.skip = 0;
-    sync_create_param.timeout = 0xaa;
+    /* Multiple PA interval with retry count and convert to unit of 10 ms */
+    sync_create_param.timeout =
+        (per_interval_us * PA_RETRY_COUNT) / (10 * USEC_PER_MSEC);
+    sem_timeout_us = per_interval_us * PA_RETRY_COUNT;
     err = bt_le_per_adv_sync_create(&sync_create_param, &sync);
     if (err) {
-      LOG_ERR("Failed to create periodic sync (err %d)", err);
+      LOG_INF("failed (err %d)\n", err);
       return;
     }
-    LOG_INF("Creating Periodic TTLight Advertising Sync successfully");
+    LOG_INF("success.\n");
 
-    LOG_INF("Waiting for periodic sync with TTLight advertiser");
-    err = k_sem_take(&sem_per_sync, TIMEOUT_SYNC_CREATE);
+    LOG_INF("Waiting for periodic sync...\n");
+    err = k_sem_take(&sem_per_sync, K_USEC(sem_timeout_us));
     if (err) {
-      LOG_ERR("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)\n", err);
 
-      LOG_ERR("Deleting Periodic Advertising Sync...");
+      LOG_INF("Deleting Periodic Advertising Sync...");
       err = bt_le_per_adv_sync_delete(sync);
       if (err) {
-        LOG_ERR("Failed to delete periodic sync (err %d)\n", err);
+        LOG_INF("failed (err %d)\n", err);
         return;
       }
+      continue;
     }
-    LOG_INF("Periodic TTLight sync established.\n");
+    LOG_INF("Periodic sync established.\n");
 
-    LOG_INF("Monitor if periodic TTLight sync is not lost");
-    err = k_sem_take(&sem_per_sync_lost, K_FOREVER);
+    LOG_INF("Waiting for BIG info...\n");
+    err = k_sem_take(&sem_per_big_info, K_USEC(sem_timeout_us));
     if (err) {
-      LOG_ERR("Failed to monitor TTLight sync (err %d)\n", err);
+      LOG_INF("failed (err %d)\n", err);
+
+      if (per_adv_lost) {
+        continue;
+      }
+
+      LOG_INF("Deleting Periodic Advertising Sync...");
+      err = bt_le_per_adv_sync_delete(sync);
+      if (err) {
+        LOG_INF("failed (err %d)\n", err);
+        return;
+      }
+      continue;
+    }
+    LOG_INF("Periodic sync established.\n");
+
+  big_sync_create:
+    LOG_INF("Create BIG Sync...\n");
+    err = bt_iso_big_sync(sync, &big_sync_param, &big);
+    if (err) {
+      LOG_INF("failed (err %d)\n", err);
       return;
     }
-    printk("Periodic TTLight sync lost, start searching from new");
+    LOG_INF("success.\n");
 
-  } while (true);
-}
-
-int ttl_ble_start() {
-  int err;
-
-  /* Start scanning for coded BLE advertiser */
-  LOG_INF("Requested to start scanning for BLE periodic advertiser");
-  err = bt_le_scan_start(BT_LE_SCAN_ACTIVE, NULL);
-  if (err) {
-    LOG_ERR("Failed to start BLE scanning (err %d)\n", err);
-    return TTL_ERR;
-  }
-
-  /* Start a thread to reconnect in case of disconnect */
-  k_thread_create(&ttl_ble_thread_data, ttl_ble_thread_stack,
-                  TTL_BLE_STACK_SIZE, (k_thread_entry_t)ttl_ble_run, NULL, NULL,
-                  NULL, -5, 0, K_NO_WAIT);
-  k_thread_name_set(&ttl_ble_thread_data, "ttl_ble_worker");
-
-  return TTL_OK;
-}
-
-int ttl_ble_stop() {
-  int err;
-  LOG_INF("Requested to stop BLE scanning for periodic advertiser");
-
-  // kill the thread
-  k_thread_abort(&ttl_ble_thread_data);
-
-  // disable BLE scanning
-  err = bt_le_scan_stop();
-  if (err) {
-    LOG_ERR("Failed to disable TTLight BLE periodic advertiser scan");
-    return TTL_ERR;
-  }
-  LOG_INF("Stopped BLE scanning for periodic advertiser");
-
-  // terminate sync channel if not null
-  if (NULL != sync && true == ttl_ble_connected) {
-    err = bt_le_per_adv_sync_delete(sync);
+    LOG_INF("Waiting for BIG sync chan...\n");
+    err = k_sem_take(&sem_big_sync, TIMEOUT_SYNC_CREATE);
     if (err) {
-      LOG_ERR("Failed to delete sync (err %d)", err);
-      return TTL_ERR;
+      break;
     }
-  }
+    LOG_INF("BIG sync chan successful.\n");
+    if (err) {
+      LOG_INF("failed (err %d)\n", err);
+
+      LOG_INF("BIG Sync Terminate...");
+      err = bt_iso_big_terminate(big);
+      if (err) {
+        LOG_INF("failed (err %d)\n", err);
+        return;
+      }
+      LOG_INF("done.\n");
+
+      goto per_sync_lost_check;
+    }
+    LOG_INF("BIG sync established.\n");
+
+    LOG_INF("Waiting for BIG sync lost chan...\n");
+    err = k_sem_take(&sem_big_sync_lost, K_FOREVER);
+    if (err) {
+      LOG_INF("failed (err %d)\n", err);
+      return;
+    }
+    LOG_INF("BIG sync lost chan.\n");
+
+    LOG_INF("BIG sync lost.\n");
+
+  per_sync_lost_check:
+    LOG_INF("Check for periodic sync lost...\n");
+    err = k_sem_take(&sem_per_sync_lost, K_NO_WAIT);
+    if (err) {
+      /* Periodic Sync active, go back to creating BIG Sync */
+      goto big_sync_create;
+    }
+    LOG_INF("Periodic sync lost.\n");
+  } while (running);
+
+  return;
+}
+
+int ttl_ble_init() {
+  running = 1;
+  ttl_upd_state_cb = NULL;
+  ttl_iso_connected = false;
+  ttl_iso_last_data = k_uptime_get();
+
+  /* Start a thread to offload disk ops */
+  k_thread_create(&ttl_ble_thread_data, ttl_ble_thread_stack,
+                  TTL_BLE_STACK_SIZE, (k_thread_entry_t)ttl_ble_thread_main,
+                  NULL, NULL, NULL, -5, 0, K_NO_WAIT);
+  k_thread_name_set(&ttl_ble_thread_data, "ttl_ble_worker");
 
   return TTL_OK;
 }
@@ -292,5 +428,5 @@ void ttl_ble_register_cb(ttl_upd_state_cb_t cb) {
   }
 }
 
-bool ttl_ble_is_connected() { return ttl_ble_connected; }
+bool ttl_ble_is_connected() { return ttl_iso_connected; }
 int64_t ttl_ble_latest_packet_date() { return ttl_iso_last_data; }
