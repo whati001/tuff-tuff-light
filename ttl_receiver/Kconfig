@@ -5,13 +5,6 @@ source "Kconfig.zephyr"
 
 mainmenu "Bluetooth: ISO Receive"
 
-config ISO_PRINT_INTERVAL
-	int "Interval between each packet report"
-	range 1 360000
-	default 1
-	help
-	  Only print the packet report once in a given interval of ISO packets.
-
 config ISO_ALIGN_PRINT_INTERVALS
 	bool "Align report interval with incoming packets"
 	help
@@ -24,3 +17,10 @@ config TTL_SHUTDOWN_TIMEOUT
 	default 600
 	help
 	  Define the shutdown timeout interval in seconds
+
+config TTL_STATE_PRINT_INTERVAL
+	int "Interval between each packet report in ISO packets"
+	range 1 1000
+	default 100
+	help
+	  Only print the ttl state report after each N packet.

@@ -72,7 +72,7 @@ static int ttl_power_down() {
  * @brief Main function of the TTL receiver
  */
 int main(void) {
-  int err = 0;
+  ttl_err_t err = 0;
   int64_t last_packet_time;
   int64_t elapsed_time;
 
@@ -93,19 +93,19 @@ int main(void) {
   ttl_ble_register_cb(ttl_led_upd_status);
   LOG_INF("Initialized TTLight LED stack properly");
 
-  // err = ttl_ble_start();
-  // if (TTL_OK != err) {
-  //   LOG_ERR("Failed to start TTLight BLE stack");
-  //   return TTL_ERR;
-  // }
-  // LOG_INF("Started TTLight BLE stack properly");
-
   err = ttl_led_start();
   if (TTL_OK != err) {
     LOG_ERR("Failed to start TTLight LED stack");
     return TTL_ERR;
   }
   LOG_INF("Started TTLight LED stack properly");
+
+  err = ttl_ble_run();
+  if (TTL_OK != err) {
+    LOG_ERR("Failed to start TTLight BLE stack");
+    return TTL_ERR;
+  }
+  LOG_INF("Started TTLight BLE stack properly");
 
 exit:
   while (1) {

@@ -174,7 +174,7 @@ int ttl_led_init() {
   return TTL_OK;
 }
 
-int ttl_led_start() {
+int ttl_led_run() {
   /* Start a thread to offload disk ops */
   k_thread_create(&ttl_led_thread_data, ttl_led_thread_stack,
                   TTL_LED_STACK_SIZE, (k_thread_entry_t)ttl_led_loop, NULL,
@@ -184,7 +184,7 @@ int ttl_led_start() {
   return TTL_OK;
 }
 
-int ttl_led_stop() {
+ttl_err_t ttl_led_terminate() {
   // kill the thread
   k_thread_abort(&ttl_led_thread_data);
 

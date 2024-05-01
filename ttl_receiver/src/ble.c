@@ -24,7 +24,6 @@ LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_INF);
 static K_KERNEL_STACK_DEFINE(ttl_ble_thread_stack, TTL_BLE_STACK_SIZE);
 static struct k_thread ttl_ble_thread_data;
 
-uint8_t running;
 static ttl_upd_state_cb_t ttl_upd_state_cb;
 static int64_t ttl_iso_last_data;
 static bool ttl_iso_connected;
@@ -192,14 +191,20 @@ static struct bt_le_per_adv_sync_cb sync_callbacks = {
     .biginfo = biginfo_cb,
 };
 
+/**
+ * @brief Callback function once ISO data has been received via BLE
+ */
 static void iso_recv(struct bt_iso_chan *chan,
                      const struct bt_iso_recv_info *info, struct net_buf *buf) {
   ttl_state_t state; /* only valid if the data is a counter */
 
   if (buf->len == sizeof(state)) {
     state.entire = sys_get_le32(buf->data);
-    LOG_DBG("Incoming data channel %p flags 0x%x seq_num %u ts %u len %u", chan,
-            info->flags, info->seq_num, info->ts, buf->len);
+
+    if ((iso_recv_count % CONFIG_TTL_STATE_PRINT_INTERVAL) == 0) {
+      LOG_DBG("Incoming data channel %p flags 0x%x seq_num %u ts %u len %u",
+              chan, info->flags, info->seq_num, info->ts, buf->len);
+    }
 
     if (ttl_upd_state_cb) {
       (*ttl_upd_state_cb)(state);
@@ -250,6 +255,9 @@ static struct bt_iso_big_sync_param big_sync_param = {
     .sync_timeout = 100, /* in 10 ms units */
 };
 
+/**
+ * @brief Main TTL BLE thread loop
+ */
 void ttl_ble_thread_main() {
   struct bt_le_per_adv_sync_param sync_create_param;
   struct bt_le_per_adv_sync *sync;
@@ -402,13 +410,17 @@ void ttl_ble_thread_main() {
       goto big_sync_create;
     }
     LOG_INF("Periodic sync lost.\n");
-  } while (running);
+  } while (true);
 
   return;
 }
 
-int ttl_ble_init() {
-  running = 1;
+ttl_err_t ttl_ble_init(void) {
+  // nothing special to do, just to keep interface straight
+  return TTL_OK;
+}
+
+ttl_err_t ttl_ble_run(void) {
   ttl_upd_state_cb = NULL;
   ttl_iso_connected = false;
   ttl_iso_last_data = k_uptime_get();
@@ -428,5 +440,5 @@ void ttl_ble_register_cb(ttl_upd_state_cb_t cb) {
   }
 }
 
-bool ttl_ble_is_connected() { return ttl_iso_connected; }
-int64_t ttl_ble_latest_packet_date() { return ttl_iso_last_data; }
+bool ttl_ble_is_connected(void) { return ttl_iso_connected; }
+int64_t ttl_ble_latest_packet_date(void) { return ttl_iso_last_data; }
