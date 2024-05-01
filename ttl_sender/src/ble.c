@@ -58,8 +58,8 @@ static struct bt_iso_chan_ops iso_ops = {
 
 static struct bt_iso_chan_io_qos iso_tx_qos = {
     .sdu = sizeof(uint32_t), /* bytes */
-    .rtn = 1,
-    .phy = BT_GAP_LE_PHY_2M,
+    .rtn = 2,
+    .phy = BT_GAP_LE_PHY_1M,
 };
 
 static struct bt_iso_chan_qos bis_iso_qos = {
@@ -167,7 +167,7 @@ static int ttl_ble_broadcast() {
     k_sem_give(&sem_ttl_state);
     net_buf_add_mem(buf, iso_data, sizeof(iso_data));
 
-    ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num, BT_ISO_TIMESTAMP_NONE);
+    ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num);
     if (ret < 0) {
       printk("Unable to broadcast data on channel with error code: %d", ret);
       net_buf_unref(buf);
