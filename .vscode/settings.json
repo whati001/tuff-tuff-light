@@ -61,7 +61,7 @@
         "accel.h": "c"
     },
     "cmake.configureOnOpen": false,
-    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.intelliSenseEngine": "disabled",
     "conventionalCommits.scopes": [
         "dt"
     ]

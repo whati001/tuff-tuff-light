@@ -6,12 +6,12 @@
 
 LOG_MODULE_REGISTER(ttl_gpio, LOG_LEVEL_INF);
 
-// ttl gpio thread objects
+// ttl GPIO thread objects
 #define TTL_GPIO_STACK_SIZE (2048)
 static K_KERNEL_STACK_DEFINE(ttl_gpio_thread_stack, TTL_GPIO_STACK_SIZE);
 static struct k_thread ttl_gpio_thread_data;
 
-// ttl gpio hardware mapping
+// ttl GPIO hardware mapping
 enum GPIO_MAPPING { BREAK = 0, TURN_LEFT, TURN_RIGHT };
 static const struct gpio_dt_spec gpios[] = {
     GPIO_DT_SPEC_GET_OR(DT_ALIAS(ttl_break), gpios, {0}),
@@ -24,7 +24,10 @@ static uint8_t values[TTL_GPIO_VALUES_LEN];
 static ttl_state_t ttl_state;
 static ttl_upd_state_cb_t ttl_gpio_upd_state_cb;
 
-static void ttl_gpio_map_state() {
+/**
+ * @brief Map GPIO input value to ttl state
+ */
+static void ttl_gpio_map_state(void) {
   ttl_state.entire = 0;
   ttl_state.parts.magic = 0x27;
   ttl_state.parts.reserved = 0x11;
@@ -39,7 +42,10 @@ static void ttl_gpio_map_state() {
   ttl_state.parts.bits.fog = 0;
 }
 
-static int ttl_gpio_enable() {
+/**
+ * @brief Configure GPIO pins as specified in devicetree file
+ */
+static int ttl_gpio_configure(void) {
   int ret = 0;
 
   memset(values, 0, ARRAY_SIZE(values));
@@ -60,6 +66,9 @@ static int ttl_gpio_enable() {
   return TTL_OK;
 }
 
+/**
+ * @brief Run GPIO update function is set
+ */
 static int ttl_gpio_upd_state() {
   if (ttl_gpio_upd_state_cb) {
     return (*ttl_gpio_upd_state_cb)(ttl_state);
@@ -67,13 +76,19 @@ static int ttl_gpio_upd_state() {
   return TTL_OK;
 }
 
-static void ttl_gpio_poll_port() {
+/**
+ * @brief Poll current TTL state from GPIO pins
+ */
+static void ttl_gpio_poll_port(void) {
   for (uint8_t i = 0; i < ARRAY_SIZE(gpios); i++) {
     values[i] = gpio_pin_get_dt(&gpios[i]);
   }
 }
 
-static void ttl_gpio_loop() {
+/**
+ * @brief Main GPIO thread loop
+ */
+static void ttl_gpio_loop(void) {
   int ret;
 
   while (true) {
@@ -89,7 +104,7 @@ static void ttl_gpio_loop() {
       continue;
     }
 
-    k_msleep(TTL_POLLING_INTERVAL_MS);
+    k_msleep(CONFIG_TTL_GPIO_POLLING_INTERVAL_MS);
   }
 }
 
@@ -99,11 +114,11 @@ void ttl_gpio_register_cb(ttl_upd_state_cb_t cb) {
   }
 }
 
-int ttl_gpio_init() {
+ttl_err_t ttl_gpio_init() {
   int ret = 0;
 
   LOG_INF("TTLight starts to initiate the GPIO Stack");
-  ret = ttl_gpio_enable();
+  ret = ttl_gpio_configure();
   if (TTL_OK != ret) {
     LOG_ERR("Failed to initiate the TTLight GPIO stack");
     return TTL_ERR;
@@ -117,7 +132,7 @@ int ttl_gpio_init() {
   return TTL_OK;
 }
 
-int ttl_gpio_start() {
+ttl_err_t ttl_gpio_run() {
   /* Start a thread to sample TTLight GPIO state independently from the main
    * thread*/
   k_thread_create(&ttl_gpio_thread_data, ttl_gpio_thread_stack,
@@ -128,7 +143,7 @@ int ttl_gpio_start() {
   return TTL_OK;
 }
 
-int ttl_gpio_stop() {
+ttl_err_t ttl_gpio_terminate() {
   k_thread_abort(&ttl_gpio_thread_data);
   return TTL_OK;
 }

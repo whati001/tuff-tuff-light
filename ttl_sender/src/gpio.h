@@ -4,29 +4,32 @@
 #include "ttl.h"
 
 /**
- * @brief Enable the TTLight GPIO stack. This function initiates the GPIO port
- * and brings up a dedicated thread to sample the GPIO state. Please use
- * @ttl_gpio_start and @ttl_gpio_stop to enable and disable sampling.
- * @return TTL_OK on success, else TTL_ERR
+ * @brief Initiate the TTL GPIO module.
+ * This function prepares the internal data struct and configures the GPIO pins.
+ *
+ * @return #ttl_err_t
  */
-int ttl_gpio_init();
+ttl_err_t ttl_gpio_init(void);
 
 /**
  * @brief Start sampling the current TTLight GPIO state in dedicated thread.
- * @return TTL_OK on success, else TTL_ERR
+ *
+ * @return #ttl_err_t
  */
-int ttl_gpio_start();
+ttl_err_t ttl_gpio_run(void);
 
 /**
  * @brief Stop sampling the current TTLight GPIO state in dedicated thread. This
  * function does not destroy the thread.
- * @return TTL_OK on success, else TTL_ERR
+ *
+ * @return #ttl_err_t
  */
-int ttl_gpio_stop();
+ttl_err_t ttl_gpio_terminate(void);
 
 /**
  * @brief Register callback function which should be get triggered once the
  * internal ttl state changes.
+ *
  * @param[in] cb - callback to execute on ttl state changes
  */
 void ttl_gpio_register_cb(ttl_upd_state_cb_t cb);
