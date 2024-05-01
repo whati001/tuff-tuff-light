@@ -167,8 +167,9 @@ static int ttl_ble_broadcast() {
       return 0;
     }
 
-    
-    PRINT_TTL_STATE(ttl_state);
+    if ((seq_num % CONFIG_TTL_STATE_PRINT_INTERVAL) == 0) {
+      PRINT_TTL_STATE(ttl_state);
+    }
     seq_num++;
   }
 
