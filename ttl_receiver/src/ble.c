@@ -25,7 +25,7 @@ static K_KERNEL_STACK_DEFINE(ttl_ble_thread_stack, TTL_BLE_STACK_SIZE);
 static struct k_thread ttl_ble_thread_data;
 
 static ttl_upd_state_cb_t ttl_upd_state_cb;
-static int64_t ttl_iso_last_data;
+static int64_t ttl_iso_last_datetime;
 static bool ttl_iso_connected;
 
 #define TIMEOUT_SYNC_CREATE K_SECONDS(10)
@@ -206,10 +206,12 @@ static void iso_recv(struct bt_iso_chan *chan,
               chan, info->flags, info->seq_num, info->ts, buf->len);
     }
 
+    // execute update state callback if set
     if (ttl_upd_state_cb) {
       (*ttl_upd_state_cb)(state);
-      ttl_iso_last_data = k_uptime_get();
     }
+    // update last received datetime
+    ttl_iso_last_datetime = k_uptime_get();
   }
   iso_recv_count++;
 }
@@ -423,7 +425,7 @@ ttl_err_t ttl_ble_init(void) {
 ttl_err_t ttl_ble_run(void) {
   ttl_upd_state_cb = NULL;
   ttl_iso_connected = false;
-  ttl_iso_last_data = k_uptime_get();
+  ttl_iso_last_datetime = k_uptime_get();
 
   /* Start a thread to offload disk ops */
   k_thread_create(&ttl_ble_thread_data, ttl_ble_thread_stack,
@@ -434,6 +436,17 @@ ttl_err_t ttl_ble_run(void) {
   return TTL_OK;
 }
 
+ttl_err_t ttl_ble_terminate(void) {
+  ttl_err_t ret = TTL_OK;
+
+  // TODO(akarner): not sure if we can kill it like this
+  ret = bt_disable();
+  if (ret != TTL_OK) {
+    return TTL_ERR;
+  }
+
+  return TTL_OK;
+}
 void ttl_ble_register_cb(ttl_upd_state_cb_t cb) {
   if (cb) {
     ttl_upd_state_cb = cb;
@@ -441,4 +454,4 @@ void ttl_ble_register_cb(ttl_upd_state_cb_t cb) {
 }
 
 bool ttl_ble_is_connected(void) { return ttl_iso_connected; }
-int64_t ttl_ble_latest_packet_date(void) { return ttl_iso_last_data; }
+int64_t ttl_ble_latest_packet_datetime(void) { return ttl_iso_last_datetime; }

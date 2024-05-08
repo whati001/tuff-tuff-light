@@ -18,11 +18,11 @@ LOG_MODULE_REGISTER(ttl_led, LOG_LEVEL_INF);
 #define TTL_LED_STACK_SIZE (2048)
 static K_KERNEL_STACK_DEFINE(ttl_led_thread_stack, TTL_LED_STACK_SIZE);
 static struct k_thread ttl_led_thread_data;
-static K_MUTEX_DEFINE(ttl_led_running);
 
 static ttl_state_t ttl_state;
 
 static K_SEM_DEFINE(sem_ttl_state, 0, 1);
+static K_SEM_DEFINE(sem_ttl_update, 0, 1);
 
 // PWM LEDs devices
 struct ttl_pwm_led_t {
@@ -89,44 +89,17 @@ static void ttl_led_disconnect_all() {
   }
 }
 
-static int ttl_led_enable() {
-  int ret = TTL_OK;
-  for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
-    ret = device_is_ready(ttl_pwm_leds[idx].pwm.dev);
-    if (false == ret) {
-      LOG_ERR("PWM LED device is not ready with name: %s and channel: %d",
-              ttl_pwm_leds[idx].pwm.dev->name, ttl_pwm_leds[idx].pwm.channel);
-      return TTL_ERR;
-    }
-    LOG_INF("PWM LED device is ready device with name:  %s and channel: %d",
-            ttl_pwm_leds[idx].pwm.dev->name, ttl_pwm_leds[idx].pwm.channel);
-
-    ret = pwm_set_dt(&ttl_pwm_leds[idx].pwm, ttl_pwm_leds[idx].pwm_periode,
-                     ttl_pwm_leds[idx].pwm_duty);
-    if (ret) {
-      LOG_ERR("Error %d: failed to set pulse width\n", ret);
-      return TTL_ERR;
-    }
-  }
-
-  // init state
-  ttl_state.entire = 0;
-  ttl_state.parts.bits.rdrive = 1;
-  ttl_state.parts.bits.ldrive = 1;
-
-  // lock mutex to block thread loop
-  k_mutex_lock(&ttl_led_running, K_FOREVER);
-  // ttl_led_disconnect_all();
-
-  return TTL_OK;
-}
-
 static int ttl_led_loop() {
   ttl_state_t state;
 
   while (true) {
+    // block until other signals that we have to update our leds
+    k_sem_take(&sem_ttl_update, K_FOREVER);
+
+    // fetch new value
     k_sem_take(&sem_ttl_state, K_FOREVER);
     state = ttl_state;
+    k_sem_give(&sem_ttl_state);
 
     LOG_INF("Received trailer light state update to:");
     PRINT_TTL_STATE(state);
@@ -152,29 +125,52 @@ static int ttl_led_loop() {
     } else {
       LOG_INF("Nothing to enable???");
     }
-
-    k_sem_give(&sem_ttl_state);
   }
 
   return TTL_OK;
 }
 
-int ttl_led_init() {
-  int ret = 0;
-  ttl_state.entire = 0;
+ttl_err_t ttl_led_init() {
+  int ret = TTL_OK;
 
   LOG_INF("TTLight starts to initiate the GPIO stack");
-  ret = ttl_led_enable();
+  for (uint8_t idx = 0; idx < ARRAY_SIZE(ttl_pwm_leds); idx++) {
+    ret = device_is_ready(ttl_pwm_leds[idx].pwm.dev);
+    if (false == ret) {
+      LOG_ERR("PWM LED device is not ready with name: %s and channel: %d",
+              ttl_pwm_leds[idx].pwm.dev->name, ttl_pwm_leds[idx].pwm.channel);
+      ret = TTL_ERR;
+      break;
+    }
+    LOG_INF("PWM LED device is ready device with name:  %s and channel: %d",
+            ttl_pwm_leds[idx].pwm.dev->name, ttl_pwm_leds[idx].pwm.channel);
+
+    ret = pwm_set_dt(&ttl_pwm_leds[idx].pwm, ttl_pwm_leds[idx].pwm_periode,
+                     ttl_pwm_leds[idx].pwm_duty);
+    if (ret) {
+      LOG_ERR("Error %d: failed to set pulse width\n", ret);
+      ret = TTL_ERR;
+      break;
+    }
+  }
+
   if (TTL_OK != ret) {
     LOG_ERR("Failed to initiate the TTLight GPIO stack");
-    return TTL_ERR;
+    return ret;
   }
   LOG_INF("TTLight initiated the GPIO stack successfully");
 
-  return TTL_OK;
+  // init state
+  ttl_state.entire = 0;
+  ttl_state.parts.bits.rdrive = 1;
+  ttl_state.parts.bits.ldrive = 1;
+
+  // ttl_led_disconnect_all();
+
+  return ret;
 }
 
-int ttl_led_run() {
+ttl_err_t ttl_led_run() {
   /* Start a thread to offload disk ops */
   k_thread_create(&ttl_led_thread_data, ttl_led_thread_stack,
                   TTL_LED_STACK_SIZE, (k_thread_entry_t)ttl_led_loop, NULL,
@@ -197,11 +193,14 @@ ttl_err_t ttl_led_terminate() {
   return TTL_OK;
 }
 
-int inline ttl_led_upd_status(ttl_state_t state) {
+ttl_err_t inline ttl_led_upd_status(ttl_state_t state) {
   if (state.entire != ttl_state.entire) {
+    k_sem_take(&sem_ttl_state, K_FOREVER);
     ttl_state = state;
     k_sem_give(&sem_ttl_state);
-    PRINT_TTL_STATE(ttl_state);
+
+    // signal led thread to update led state
+    k_sem_give(&sem_ttl_update);
   }
 
   return TTL_OK;

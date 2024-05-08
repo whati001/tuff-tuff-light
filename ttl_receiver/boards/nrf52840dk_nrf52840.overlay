@@ -62,7 +62,7 @@
 	accelerometer: adxl345@53 {
 		compatible="adi,adxl345";
 		reg=<0x53>;
-		odr=<6>;
+		frequency=<100>;
 		range=<16>;
 		fifo=<0>;
 		int1-gpios=<&gpio1 0 GPIO_ACTIVE_HIGH>;
