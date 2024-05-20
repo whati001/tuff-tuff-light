@@ -201,8 +201,10 @@ static void iso_recv(struct bt_iso_chan *chan,
     state.entire = sys_get_le32(buf->data);
 
     if ((iso_recv_count % CONFIG_TTL_STATE_PRINT_INTERVAL) == 0) {
-      LOG_DBG("Incoming data channel %p flags 0x%x seq_num %u ts %u len %u",
-              chan, info->flags, info->seq_num, info->ts, buf->len);
+      LOG_INF("Incoming data channel %p flags 0x%x seq_num %u ts %u len %u "
+              "data: %x",
+              chan, info->flags, info->seq_num, info->ts, buf->len,
+              state.entire);
     }
 
     // execute update state callback if set
@@ -429,13 +431,12 @@ void ttl_ble_thread_main() {
 }
 
 ttl_err_t ttl_ble_init(void) {
-  // nothing special to do, just to keep interface straight
+  ttl_upd_state_cb = NULL;
+  ttl_iso_connected = false;
   return TTL_OK;
 }
 
 ttl_err_t ttl_ble_run(void) {
-  ttl_upd_state_cb = NULL;
-  ttl_iso_connected = false;
   ttl_iso_last_datetime = k_uptime_get();
 
   /* Start a thread to offload disk ops */
