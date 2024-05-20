@@ -27,7 +27,6 @@ static struct k_thread ttl_ble_thread_data;
 static ttl_upd_state_cb_t ttl_upd_state_cb;
 static int64_t ttl_iso_last_datetime;
 static bool ttl_iso_connected;
-
 #define TIMEOUT_SYNC_CREATE K_SECONDS(10)
 #define NAME_LEN 30
 
@@ -95,7 +94,7 @@ static void scan_recv(const struct bt_le_scan_recv_info *info,
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
   LOG_DBG("[DEVICE]: %s, AD evt type %u, Tx Pwr: %i, RSSI %i %s "
           "C:%u S:%u D:%u SR:%u E:%u Prim: %s, Secn: %s, "
-          "Interval: 0x%04x (%u us), SID: %u\n",
+          "Interval: 0x%04x (%u us), SID: %u",
           le_addr, info->adv_type, info->tx_power, info->rssi, name,
           (info->adv_props & BT_GAP_ADV_PROP_CONNECTABLE) != 0,
           (info->adv_props & BT_GAP_ADV_PROP_SCANNABLE) != 0,
@@ -127,7 +126,7 @@ static void sync_cb(struct bt_le_per_adv_sync *sync,
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
 
   LOG_INF("PER_ADV_SYNC[%u]: [DEVICE]: %s synced, "
-          "Interval 0x%04x (%u ms), PHY %s\n",
+          "Interval 0x%04x (%u ms), PHY %s",
           bt_le_per_adv_sync_get_index(sync), le_addr, info->interval,
           info->interval * 5 / 4, phy2str(info->phy));
 
@@ -140,7 +139,7 @@ static void term_cb(struct bt_le_per_adv_sync *sync,
 
   bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
 
-  LOG_INF("PER_ADV_SYNC[%u]: [DEVICE]: %s sync terminated\n",
+  LOG_INF("PER_ADV_SYNC[%u]: [DEVICE]: %s sync terminated",
           bt_le_per_adv_sync_get_index(sync), le_addr);
 
   per_adv_lost = true;
@@ -157,7 +156,7 @@ static void recv_cb(struct bt_le_per_adv_sync *sync,
   bin2hex(buf->data, buf->len, data_str, sizeof(data_str));
 
   LOG_INF("PER_ADV_SYNC[%u]: [DEVICE]: %s, tx_power %i, "
-          "RSSI %i, CTE %u, data length %u, data: %s\n",
+          "RSSI %i, CTE %u, data length %u, data: %s",
           bt_le_per_adv_sync_get_index(sync), le_addr, info->tx_power,
           info->rssi, info->cte_type, buf->len, data_str);
 }
@@ -168,11 +167,11 @@ static void biginfo_cb(struct bt_le_per_adv_sync *sync,
 
   bt_addr_le_to_str(biginfo->addr, le_addr, sizeof(le_addr));
 
-  LOG_DBG("BIG INFO[%u]: [DEVICE]: %s, sid 0x%02x, "
+  LOG_INF("BIG INFO[%u]: [DEVICE]: %s, sid 0x%02x, "
           "num_bis %u, nse %u, interval 0x%04x (%u ms), "
           "bn %u, pto %u, irc %u, max_pdu %u, "
           "sdu_interval %u us, max_sdu %u, phy %s, "
-          "%s framing, %sencrypted\n",
+          "%s framing, %sencrypted",
           bt_le_per_adv_sync_get_index(sync), le_addr, biginfo->sid,
           biginfo->num_bis, biginfo->sub_evt_count, biginfo->iso_interval,
           (biginfo->iso_interval * 5 / 4), biginfo->burst_number,
@@ -217,13 +216,13 @@ static void iso_recv(struct bt_iso_chan *chan,
 }
 
 static void iso_connected(struct bt_iso_chan *chan) {
-  LOG_INF("ISO Channel %p connected\n", chan);
+  LOG_INF("ISO Channel %p connected", chan);
   ttl_iso_connected = true;
   k_sem_give(&sem_big_sync);
 }
 
 static void iso_disconnected(struct bt_iso_chan *chan, uint8_t reason) {
-  LOG_INF("ISO Channel %p disconnected with reason 0x%02x\n", chan, reason);
+  LOG_INF("ISO Channel %p disconnected with reason 0x%02x", chan, reason);
   if (reason != BT_HCI_ERR_OP_CANCELLED_BY_HOST) {
     ttl_iso_connected = false;
     k_sem_give(&sem_big_sync_lost);
@@ -236,27 +235,40 @@ static struct bt_iso_chan_ops iso_ops = {
     .disconnected = iso_disconnected,
 };
 
-static struct bt_iso_chan_io_qos iso_rx_qos;
+static struct bt_iso_chan_io_qos iso_rx_qos[1];
 
-static struct bt_iso_chan_qos bis_iso_qos = {
-    .rx = &iso_rx_qos,
+static struct bt_iso_chan_qos bis_iso_qos[] = {
+    {
+        .rx = &iso_rx_qos[0],
+
+    },
 };
 
-static struct bt_iso_chan bis_iso_chan = {
+static struct bt_iso_chan bis_iso_chan[] = {{
     .ops = &iso_ops,
-    .qos = &bis_iso_qos,
-};
+    .qos = &bis_iso_qos[0],
+}};
 
-static struct bt_iso_chan *bis[] = {&bis_iso_chan};
+static struct bt_iso_chan *bis[] = {
+    &bis_iso_chan[0],
+};
 
 static struct bt_iso_big_sync_param big_sync_param = {
     .bis_channels = bis,
     .num_bis = 1,
     .bis_bitfield = (BIT_MASK(1) << 1),
-    .mse = 1,
-    .sync_timeout = 100, /* in 10 ms units */
+    .mse = BT_ISO_SYNC_MSE_ANY, /* any number of subevents */
+    .sync_timeout = 100,        /* in 10 ms units */
 };
 
+static void reset_semaphores(void) {
+  k_sem_reset(&sem_per_adv);
+  k_sem_reset(&sem_per_sync);
+  k_sem_reset(&sem_per_sync_lost);
+  k_sem_reset(&sem_per_big_info);
+  k_sem_reset(&sem_big_sync);
+  k_sem_reset(&sem_big_sync_lost);
+}
 /**
  * @brief Main TTL BLE thread loop
  */
@@ -269,50 +281,51 @@ void ttl_ble_thread_main() {
 
   iso_recv_count = 0;
 
-  LOG_INF("Starting Synchronized Receiver Demo\n");
+  LOG_INF("Starting Synchronized Receiver Demo");
 
   /* Initialize the Bluetooth Subsystem */
   err = bt_enable(NULL);
   if (err) {
-    LOG_INF("Bluetooth init failed (err %d)\n", err);
+    LOG_INF("Bluetooth init failed (err %d)", err);
     return;
   }
 
   LOG_INF("Scan callbacks register...");
   bt_le_scan_cb_register(&scan_callbacks);
-  LOG_INF("success.\n");
+  LOG_INF("success.");
 
   LOG_INF("Periodic Advertising callbacks register...");
   bt_le_per_adv_sync_cb_register(&sync_callbacks);
-  LOG_INF("Success.\n");
+  LOG_INF("Success.");
 
   do {
+    reset_semaphores();
     per_adv_lost = false;
 
     LOG_INF("Start scanning...");
     err = bt_le_scan_start(BT_LE_SCAN_CUSTOM, NULL);
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
       return;
     }
-    LOG_INF("success.\n");
+    LOG_INF("success.");
 
-    LOG_INF("Waiting for periodic advertising...\n");
+    LOG_INF("Waiting for periodic advertising...");
     per_adv_found = false;
     err = k_sem_take(&sem_per_adv, K_FOREVER);
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
       return;
     }
-    LOG_INF("Found periodic advertising.\n");
+    LOG_INF("Found periodic advertising.");
 
     LOG_INF("Stop scanning...");
     err = bt_le_scan_stop();
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
       return;
     }
-    LOG_INF("success.\n");
+    LOG_INF("success.");
 
     LOG_INF("Creating Periodic Advertising Sync...");
     bt_addr_le_copy(&sync_create_param.addr, &per_addr);
@@ -325,30 +338,30 @@ void ttl_ble_thread_main() {
     sem_timeout_us = per_interval_us * PA_RETRY_COUNT;
     err = bt_le_per_adv_sync_create(&sync_create_param, &sync);
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
       return;
     }
-    LOG_INF("success.\n");
+    LOG_INF("success.");
 
-    LOG_INF("Waiting for periodic sync...\n");
+    LOG_INF("Waiting for periodic sync...");
     err = k_sem_take(&sem_per_sync, K_USEC(sem_timeout_us));
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
 
       LOG_INF("Deleting Periodic Advertising Sync...");
       err = bt_le_per_adv_sync_delete(sync);
       if (err) {
-        LOG_INF("failed (err %d)\n", err);
+        LOG_INF("failed (err %d)", err);
         return;
       }
       continue;
     }
-    LOG_INF("Periodic sync established.\n");
+    LOG_INF("Periodic sync established.");
 
-    LOG_INF("Waiting for BIG info...\n");
+    LOG_INF("Waiting for BIG info...");
     err = k_sem_take(&sem_per_big_info, K_USEC(sem_timeout_us));
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
 
       if (per_adv_lost) {
         continue;
@@ -357,61 +370,59 @@ void ttl_ble_thread_main() {
       LOG_INF("Deleting Periodic Advertising Sync...");
       err = bt_le_per_adv_sync_delete(sync);
       if (err) {
-        LOG_INF("failed (err %d)\n", err);
+        LOG_INF("failed (err %d)", err);
         return;
       }
       continue;
     }
-    LOG_INF("Periodic sync established.\n");
+    LOG_INF("Periodic sync established.");
 
   big_sync_create:
-    LOG_INF("Create BIG Sync...\n");
+    LOG_INF("Create BIG Sync...");
     err = bt_iso_big_sync(sync, &big_sync_param, &big);
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
       return;
     }
-    LOG_INF("success.\n");
+    LOG_INF("success.");
 
-    LOG_INF("Waiting for BIG sync chan...\n");
+    LOG_INF("Waiting for BIG sync chan ...");
     err = k_sem_take(&sem_big_sync, TIMEOUT_SYNC_CREATE);
     if (err) {
       break;
     }
-    LOG_INF("BIG sync chan successful.\n");
+    LOG_INF("BIG sync chan successful.");
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
 
       LOG_INF("BIG Sync Terminate...");
       err = bt_iso_big_terminate(big);
       if (err) {
-        LOG_INF("failed (err %d)\n", err);
+        LOG_INF("failed (err %d)", err);
         return;
       }
-      LOG_INF("done.\n");
+      LOG_INF("done.");
 
       goto per_sync_lost_check;
     }
-    LOG_INF("BIG sync established.\n");
+    LOG_INF("BIG sync established.");
 
-    LOG_INF("Waiting for BIG sync lost chan...\n");
+    LOG_INF("Waiting for BIG sync lost chan...");
     err = k_sem_take(&sem_big_sync_lost, K_FOREVER);
     if (err) {
-      LOG_INF("failed (err %d)\n", err);
+      LOG_INF("failed (err %d)", err);
       return;
     }
-    LOG_INF("BIG sync lost chan.\n");
-
-    LOG_INF("BIG sync lost.\n");
+    LOG_INF("BIG sync lost.");
 
   per_sync_lost_check:
-    LOG_INF("Check for periodic sync lost...\n");
+    LOG_INF("Check for periodic sync lost...");
     err = k_sem_take(&sem_per_sync_lost, K_NO_WAIT);
     if (err) {
       /* Periodic Sync active, go back to creating BIG Sync */
       goto big_sync_create;
     }
-    LOG_INF("Periodic sync lost.\n");
+    LOG_INF("Periodic sync lost.");
   } while (true);
 
   return;

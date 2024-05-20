@@ -21,8 +21,8 @@ static struct k_thread ttl_led_thread_data;
 
 static ttl_state_t ttl_state;
 
-static K_SEM_DEFINE(sem_ttl_state, 0, 1);
-static K_SEM_DEFINE(sem_ttl_update, 0, 1);
+static K_SEM_DEFINE(sem_ttl_state, 1, 1);
+static K_SEM_DEFINE(sem_ttl_update, 1, 1);
 
 // PWM LEDs devices
 struct ttl_pwm_led_t {
@@ -94,8 +94,10 @@ static int ttl_led_loop() {
 
   while (true) {
     // block until other signals that we have to update our leds
+    LOG_INF("Take update sem");
     k_sem_take(&sem_ttl_update, K_FOREVER);
 
+    LOG_INF("Take ttl state sem");
     // fetch new value
     k_sem_take(&sem_ttl_state, K_FOREVER);
     state = ttl_state;
