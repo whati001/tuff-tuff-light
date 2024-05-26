@@ -7,25 +7,25 @@
 // remove existing pwm LEDs dt configuration
 / {
 	aliases {
-    /delete-property/ sw0;
-    /delete-property/ mcuboot-button0;
-    /delete-property/ mcuboot-led0;
+		/delete-property/ sw0;
+		/delete-property/ mcuboot-button0;
+		/delete-property/ mcuboot-led0;
 
-    /delete-property/ led0;
-    /delete-property/ led1;
-    /delete-property/ led2;
-    /delete-property/ led3;
-    /delete-property/ led0-green;
-    /delete-property/ led1-red;
-    /delete-property/ led1-green;
-    /delete-property/ led1-blue;
-    /delete-property/ pwm-led0;
-    /delete-property/ pwm-led1;
-    /delete-property/ pwm-led2;
-    /delete-property/ pwm-led3;
-    /delete-property/ red-pwm-led;
-    /delete-property/ green-pwm-led;
-    /delete-property/ blue-pwm-led;
+		/delete-property/ led0;
+		/delete-property/ led1;
+		/delete-property/ led2;
+		/delete-property/ led3;
+		/delete-property/ led0-green;
+		/delete-property/ led1-red;
+		/delete-property/ led1-green;
+		/delete-property/ led1-blue;
+		/delete-property/ pwm-led0;
+		/delete-property/ pwm-led1;
+		/delete-property/ pwm-led2;
+		/delete-property/ pwm-led3;
+		/delete-property/ red-pwm-led;
+		/delete-property/ green-pwm-led;
+		/delete-property/ blue-pwm-led;
 	};
 	/delete-node/ pwmleds;
 	/delete-node/ buttons;
@@ -51,9 +51,9 @@
 	// use GPIO pins which are also available on the DONGLE
 	group1 {
 		psels = 
-			<NRF_PSEL(PWM_OUT0, 1, 10)>, 
-			<NRF_PSEL(PWM_OUT1, 1, 13)>,
-			<NRF_PSEL(PWM_OUT2, 1, 15)>;
+			<NRF_PSEL(PWM_OUT0, 0, 6)>, 
+			<NRF_PSEL(PWM_OUT1, 0, 7)>,
+			<NRF_PSEL(PWM_OUT2, 0, 8)>;
 		
 		// remove nordic,invert property,
 		// otherwise the GPIO will be high if the PWM is disconnected
