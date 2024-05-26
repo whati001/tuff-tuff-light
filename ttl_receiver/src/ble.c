@@ -205,6 +205,7 @@ static void iso_recv(struct bt_iso_chan *chan,
               "data: %x",
               chan, info->flags, info->seq_num, info->ts, buf->len,
               state.entire);
+      PRINT_TTL_STATE(state);
     }
 
     // execute update state callback if set
