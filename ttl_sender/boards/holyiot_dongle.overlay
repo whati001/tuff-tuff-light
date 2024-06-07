@@ -20,15 +20,15 @@
   buttons {
     compatible = "gpio-keys";
     button0: button_0 {
-      gpios = <&gpio1 22 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+      gpios = <&gpio0 6 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
     };
 
     button1: button1 {
-      gpios = <&gpio1 24 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+      gpios = <&gpio0 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
     };
 
     button2: button2 {
-      gpios = <&gpio1 0 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+      gpios = <&gpio0 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
     };
 
   };
