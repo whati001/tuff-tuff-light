@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2021 Nordic Semiconductor ASA
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/iso.h>
 #include <zephyr/logging/log.h>
@@ -11,10 +5,10 @@
 
 #include "ttl.h"
 
-LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_DBG);
 
-#define BUF_ALLOC_TIMEOUT (10)                       /* milliseconds */
-#define BIG_TERMINATE_TIMEOUT_US (60 * USEC_PER_SEC) /* microseconds */
+#define BUF_ALLOC_TIMEOUT_MS (10)
+#define BIG_TERMINATE_TIMEOUT_US (60 * USEC_PER_SEC)
 #define BIG_SDU_INTERVAL_US (10000)
 
 NET_BUF_POOL_FIXED_DEFINE(bis_tx_pool, 1,
@@ -26,7 +20,6 @@ static K_SEM_DEFINE(sem_big_term, 0, 1);
 static K_SEM_DEFINE(sem_iso_data, CONFIG_BT_ISO_TX_BUF_COUNT,
                     CONFIG_BT_ISO_TX_BUF_COUNT);
 
-static uint8_t running;
 static uint16_t seq_num;
 static ttl_state_t ttl_state;
 static K_SEM_DEFINE(sem_ttl_state, 1, 1);
@@ -58,8 +51,8 @@ static struct bt_iso_chan_ops iso_ops = {
 
 static struct bt_iso_chan_io_qos iso_tx_qos = {
     .sdu = sizeof(uint32_t), /* bytes */
-    .rtn = 1,
-    .phy = BT_GAP_LE_PHY_2M,
+    .rtn = 2,
+    .phy = BT_GAP_LE_PHY_1M,
 };
 
 static struct bt_iso_chan_qos bis_iso_qos = {
@@ -143,11 +136,11 @@ static int ttl_ble_enable() {
 }
 
 static int ttl_ble_broadcast() {
-  while (running) {
+  while (true) {
     struct net_buf *buf;
     int ret;
 
-    buf = net_buf_alloc(&bis_tx_pool, K_MSEC(BUF_ALLOC_TIMEOUT));
+    buf = net_buf_alloc(&bis_tx_pool, K_MSEC(BUF_ALLOC_TIMEOUT_MS));
     if (!buf) {
       printk("Data buffer allocate timeout on channel");
       return 0;
@@ -167,20 +160,25 @@ static int ttl_ble_broadcast() {
     k_sem_give(&sem_ttl_state);
     net_buf_add_mem(buf, iso_data, sizeof(iso_data));
 
-    ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num, BT_ISO_TIMESTAMP_NONE);
+    ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num);
     if (ret < 0) {
       printk("Unable to broadcast data on channel with error code: %d", ret);
       net_buf_unref(buf);
       return 0;
     }
 
-    LOG_DBG("Sending value %d\n", ttl_state.entire);
+    if ((seq_num % CONFIG_TTL_STATE_PRINT_INTERVAL) == 0) {
+      PRINT_TTL_STATE(ttl_state);
+    }
     seq_num++;
   }
 
   return TTL_OK;
 }
 
+/**
+ * @brief Main TTL BLE thread loop
+ */
 static void ttl_ble_thread_main() {
   int ret = 0;
   LOG_INF("TTLight starts to initiate the BLE Stack");
@@ -202,8 +200,12 @@ static void ttl_ble_thread_main() {
   return;
 }
 
-int ttl_ble_init() {
-  running = 1;
+ttl_err_t ttl_ble_init(void) {
+  // nothing special to do, just to keep interface straight
+  return TTL_OK;
+}
+
+ttl_err_t ttl_ble_run(void) {
   /* Start a thread to offload disk ops */
   k_thread_create(&ttl_ble_thread_data, ttl_ble_thread_stack,
                   TTL_BLE_STACK_SIZE, (k_thread_entry_t)ttl_ble_thread_main,
@@ -213,7 +215,7 @@ int ttl_ble_init() {
   return TTL_OK;
 }
 
-int ttl_ble_upd_status(ttl_state_t state) {
+ttl_err_t ttl_ble_upd_status(ttl_state_t state) {
   if (state.entire != ttl_state.entire) {
     LOG_INF("Updated TTLight state to:");
     PRINT_TTL_STATE(state);

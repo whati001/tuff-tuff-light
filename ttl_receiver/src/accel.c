@@ -1,8 +1,8 @@
 
-#include "accel.h"
-#include "ttl.h"
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
+
+#include "accel.h"
 
 LOG_MODULE_REGISTER(ttl_accel, LOG_LEVEL_INF);
 
@@ -13,7 +13,7 @@ static void ttl_accel_active(const struct device *dev,
   LOG_INF("ACCEL ACTIVE");
 }
 
-int ttl_accel_init() {
+ttl_err_t ttl_accel_init(void) {
   int rc;
   if (!device_is_ready(adx345)) {
     LOG_ERR("%s: device not ready.\n", adx345->name);
@@ -40,7 +40,7 @@ int ttl_accel_init() {
   return TTL_OK;
 }
 
-int ttl_accel_read(struct sensor_value *val) {
+ttl_err_t ttl_accel_read(struct sensor_value *val) {
   struct sensor_value accel[3];
   int ret = sensor_sample_fetch(adx345);
   if (ret < 0) {

@@ -1,19 +1,31 @@
 /*
- * Copyright (c) 2019, Nordic Semiconductor ASA
+ * Copyright (c) 2016-2023 Makerdiary
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 // remove existing pwm LEDs dt configuration
-// remove buttons to avoid interference 
 / {
 	aliases {
-		/delete-property/ pwm-led0;		
 		/delete-property/ sw0;
-		/delete-property/ sw1;
-		/delete-property/ sw2;
-		/delete-property/ sw3;
 		/delete-property/ mcuboot-button0;
+		/delete-property/ mcuboot-led0;
+
+		/delete-property/ led0;
+		/delete-property/ led1;
+		/delete-property/ led2;
+		/delete-property/ led3;
+		/delete-property/ led0-green;
+		/delete-property/ led1-red;
+		/delete-property/ led1-green;
+		/delete-property/ led1-blue;
+		/delete-property/ pwm-led0;
+		/delete-property/ pwm-led1;
+		/delete-property/ pwm-led2;
+		/delete-property/ pwm-led3;
+		/delete-property/ red-pwm-led;
+		/delete-property/ green-pwm-led;
+		/delete-property/ blue-pwm-led;
 	};
 	/delete-node/ pwmleds;
 	/delete-node/ buttons;
@@ -33,15 +45,15 @@
 			pwms = <&pwm0 2 PWM_SEC(1) PWM_POLARITY_NORMAL>;
 		};
 	};
-};
+};	
 
 &pwm0_default {
 	// use GPIO pins which are also available on the DONGLE
 	group1 {
 		psels = 
-			<NRF_PSEL(PWM_OUT0, 1, 10)>, 
-			<NRF_PSEL(PWM_OUT1, 1, 13)>,
-			<NRF_PSEL(PWM_OUT2, 1, 15)>;
+			<NRF_PSEL(PWM_OUT0, 0, 6)>, 
+			<NRF_PSEL(PWM_OUT1, 0, 7)>,
+			<NRF_PSEL(PWM_OUT2, 0, 8)>;
 		
 		// remove nordic,invert property,
 		// otherwise the GPIO will be high if the PWM is disconnected
@@ -49,12 +61,13 @@
 	};
 };
 
+
 /* 
  * ADXL345 on I2C
  * We use the alternative 7-bit I2C address: 0x53
  * Furthermore, we use the following pins for I2C
  *   - SCL: P0.22
- *   - SDA: P0.25 -> we can not use P0.24 because this pin is fixed wired to the QSPI flash
+ *   - SDA: P0.24
 */
 &i2c0 {
 	status = "okay";
@@ -65,14 +78,14 @@
 		frequency=<100>;
 		range=<16>;
 		fifo=<0>;
-		int1-gpios=<&gpio1 0 GPIO_ACTIVE_HIGH>;
+		int1-gpios=<&gpio0 13 GPIO_ACTIVE_HIGH>;
 	};
 };
 
 &i2c0_default {
 	group1 {
-		psels = <NRF_PSEL(TWIM_SCL, 0, 25)>,
-				<NRF_PSEL(TWIM_SDA, 0, 24)>;
+		psels = <NRF_PSEL(TWIM_SCL, 0, 15)>,
+				<NRF_PSEL(TWIM_SDA, 0, 16)>;
 	};
 };
 
@@ -80,8 +93,20 @@
 		buttons {
 		compatible = "gpio-keys";
 		reboot_pin: reboot_pin {
-			gpios = < &gpio1 0 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+			gpios = < &gpio0 13 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
 			label = "Push button switch 0";
 		};
 	};
+};
+
+/ {
+  chosen {
+      zephyr,console = &cdc_acm_uart0;
+  };
+};
+
+&zephyr_udc0 {
+  cdc_acm_uart0: cdc_acm_uart0 {
+      compatible = "zephyr,cdc-acm-uart";
+  };
 };

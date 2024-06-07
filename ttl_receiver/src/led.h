@@ -15,21 +15,21 @@
  * @ttl_led_start and @ttl_led_stop.
  * @return TTL_OK on success, else TTL_ERR
  */
-int ttl_led_init();
+ttl_err_t ttl_led_init();
 
 /**
  * @brief Start periodically updating the external LEDs with the current TTLight
  * state.
  * @return TTL_OK on success, else TTL_ERR
  */
-int ttl_led_start();
+ttl_err_t ttl_led_run();
 
 /**
  * @brief Stop periodically updating the external LEDs with the current TTLight
  * state.
  * @return TTL_OK on success, else TTL_ERR
  */
-int ttl_led_stop();
+ttl_err_t ttl_led_terminate();
 
 /**
  * @brief Callback function to update internal led status.
@@ -37,6 +37,6 @@ int ttl_led_stop();
  * @param[in] state - new ttl state to light up
  * @return TTL_OK on success, else TTL_ERR
  */
-int ttl_led_upd_status(ttl_state_t state);
+ttl_err_t ttl_led_upd_status(ttl_state_t state);
 
 #endif
