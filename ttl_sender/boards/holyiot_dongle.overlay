@@ -7,9 +7,9 @@
     /delete-property/ sw3;
     /delete-property/ mcuboot-button0;
 
-    ttl-break = &button0;
+    ttl-break = &button0; /* fine */
     ttl-tleft = &button1;
-    ttl-tright = &button2;
+    ttl-tright = &button2; /* fine */
   };
 };
 
@@ -24,7 +24,7 @@
     };
 
     button1: button1 {
-      gpios = <&gpio0 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+      gpios = <&gpio1 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
     };
 
     button2: button2 {
