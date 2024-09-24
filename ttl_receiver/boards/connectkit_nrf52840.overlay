@@ -110,3 +110,9 @@
       compatible = "zephyr,cdc-acm-uart";
   };
 };
+
+// use low power mode (PFM) of regulator
+// change regulator GPIO polarity to active low (0 = active high, 1 = active low)
+//&tps63802_force_pwm_mode {
+//    enable-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+//};
