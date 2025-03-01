@@ -1,0 +1,74 @@
+/*
+ * Copyright (c) 2017 Linaro Limited
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+#include <nordic/nrf52840_qiaa.dtsi>
+#include <nordic/nrf52840_partition.dtsi>
+#include "ttlpav1_nrf52840-pinctrl.dtsi"
+#include "ttlpav1_nrf52840_pa.dtsi"
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+	model = "Rehka TTL Sender PA v1";
+	compatible = "rehka,ttlpav1-nrf52840";
+
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,uart-mcumgr = &uart0;
+	};
+
+	/* These aliases are provided for compatibility with samples */
+	aliases {
+		watchdog0 = &wdt0;
+	};
+};
+
+&reg0 {
+	status = "okay";
+};
+
+&reg1 {
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+&adc {
+	status = "okay";
+};
+
+&uicr {
+	gpio-as-nreset;
+};
+
+&gpiote {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+	gpio-reserved-ranges = <0 2>, <6 1>, <8 3>, <17 7>;
+	gpio-line-names = "XL1", "XL2", "AREF", "A0", "A1", "RTS", "TXD",
+		"CTS", "RXD", "NFC1", "NFC2", "BUTTON1", "BUTTON2", "LED1",
+		"LED2", "LED3", "LED4", "QSPI CS", "RESET", "QSPI CLK",
+		"QSPI DIO0", "QSPI DIO1", "QSPI DIO2", "QSPI DIO3","BUTTON3",
+		"BUTTON4", "SDA", "SCL", "A2", "A3", "A4", "A5";
+};
+
+&gpio1 {
+	status = "okay";
+	gpio-line-names = "", "D0", "D1", "D2", "D3", "D4", "D5", "D6",
+		"D7", "", "D8", "D9", "D10", "D11", "D12", "D13";
+};
+
+&uart0 {
+	compatible = "nordic,nrf-uarte";
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-1 = <&uart0_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
