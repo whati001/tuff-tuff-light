@@ -1,0 +1,39 @@
+
+/ {
+    aliases {
+		/delete-property/ sw0;
+		/delete-property/ sw1;
+		/delete-property/ sw2;
+		/delete-property/ sw3;
+
+    ttl-reverse = &button0;
+    ttl-break = &button1;
+    ttl-tleft = &button2;
+    ttl-tright = &button3;
+	};
+};
+
+/*
+ * Only active this change only if you would like to test with the GPIO pins instead of the buttons on the DK.
+ */
+/*
+&button0 {
+  gpios = < &gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+  /delete-property/ zephyr,code;
+};
+
+&button1 {
+  gpios = < &gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+  /delete-property/ zephyr,code;
+};
+
+&button2 {
+  gpios = < &gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+  /delete-property/ zephyr,code;
+};
+
+&button3 {
+  gpios = < &gpio0 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+  /delete-property/ zephyr,code;
+};
+*/

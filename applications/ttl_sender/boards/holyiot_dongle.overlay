@@ -1,0 +1,58 @@
+
+/ {
+  aliases {
+    /delete-property/ sw0;
+    /delete-property/ sw1;
+    /delete-property/ sw2;
+    /delete-property/ sw3;
+    /delete-property/ mcuboot-button0;
+
+    ttl-break = &button0; /* fine */
+    ttl-tleft = &button1;
+    ttl-tright = &button2; /* fine */
+  };
+};
+
+/* Define buttons -> light sniffing gpios */
+/ {
+  /delete-node/ buttons;
+
+  buttons {
+    compatible = "gpio-keys";
+    button0: button_0 {
+      gpios = <&gpio0 6 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+    };
+
+    button1: button1 {
+      gpios = <&gpio1 9 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+    };
+
+    button2: button2 {
+      gpios = <&gpio0 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+    };
+
+  };
+};
+
+
+/**
+ * Configure FEM for nrf52840 radio as stated in dts/bindings/net/wireless/nordic,nrf-radio.yaml
+ * Checkout schematic from: http: //www.holyiot.com/tp/2021091017064271075.pdf
+ *
+ * They have not incooperated an official nrf21540 FEM, so let's use as `generic-fem-two-ctrl-pins`
+ */
+/ {
+  nrf_radio_fem: holyiot_dongle_fem {
+    compatible = "generic-fem-two-ctrl-pins";
+    ctx-gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>; // from datasheet
+    ctx-settle-time-us = <10>; // some empiric value
+    crx-gpios = <&gpio0 24 GPIO_ACTIVE_HIGH>; // some empiric value
+    crx-settle-time-us = <10>; // some empiric value
+    rx-gain-db = <12>;
+    tx-gain-db = <25>;
+  };
+};
+
+&radio {
+  fem = <&nrf_radio_fem>;
+};

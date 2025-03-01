@@ -1,0 +1,26 @@
+# Copyright (c) 2023 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+source "Kconfig.zephyr"
+
+mainmenu "Bluetooth: ISO Receive"
+
+config ISO_ALIGN_PRINT_INTERVALS
+	bool "Align report interval with incoming packets"
+	help
+	  Align interval-counter with packet number from incoming ISO packets.
+	  This may be needed if report printouts are to be synchronized between
+	  the iso_broadcast sample and the iso_receive sample.
+
+config TTL_SHUTDOWN_TIMEOUT
+	int "Shutdown timeout in seconds"
+	default 600
+	help
+	  Define the shutdown timeout interval in seconds
+
+config TTL_STATE_PRINT_INTERVAL
+	int "Interval between each packet report in ISO packets"
+	range 1 1000
+	default 100
+	help
+	  Only print the ttl state report after each N packet.
