@@ -1,0 +1,8 @@
+Designator,Val,Package,Mid X,Mid Y,Rotation,Layer
+D1,SS34,D_SMA,-10.4,44.6,0.0,top
+IC1,CD74HC4050NSR,TSSOP-16_4.4x5mm_P0.65mm,-30.8,19.6,-90.0,top
+J2,Conn_ST_STDC14,PinHeader_2x07_P1.27mm_Vertical_SMD,-7.7,6.0,0.0,top
+L1,47u,L_12x12mm_H8mm,-10.35,35.0,180.0,top
+U1,451-00001,XCVR_451-00001,-26.9,7.0,90.0,top
+U2,LM2596S-3.3,TO-263-5_TabPin3,-24.975,36.6,-90.0,top
+Y1,Crystal,Crystal_SMD_MicroCrystal_CC8V-T1A-2Pin_2.0x1.2mm,-16.7,2.75,-90.0,top
