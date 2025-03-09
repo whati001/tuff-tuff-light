@@ -44,12 +44,12 @@ void ttl_ble_register_cb(ttl_upd_state_cb_t cb);
 bool ttl_ble_is_connected(void);
 
 /**
- * @brief Query the latest received ble iso packet datetime.
- * Please consider that this date will be the thread start time if no iso
+ * @brief Query the latest received ble iso packet datetime in milliseconds
+ * (ms). Please consider that this date will be the thread start time if no iso
  * connection was made yet.
  *
- * @return time_t of last packet
+ * @return time_t of last packet received in ms
  */
-int64_t ttl_ble_latest_packet_datetime(void);
+int64_t ttl_ble_latest_packet_datetime_ms(void);
 
 #endif

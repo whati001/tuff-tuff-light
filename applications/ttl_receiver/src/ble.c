@@ -196,6 +196,7 @@ static struct bt_le_per_adv_sync_cb sync_callbacks = {
 static void iso_recv(struct bt_iso_chan *chan,
                      const struct bt_iso_recv_info *info, struct net_buf *buf) {
   ttl_state_t state; /* only valid if the data is a counter */
+  LOG_INF(">>> Received some data on ISO channel %p", chan);
 
   if (buf->len == sizeof(state)) {
     state.entire = sys_get_le32(buf->data);
@@ -467,4 +468,6 @@ void ttl_ble_register_cb(ttl_upd_state_cb_t cb) {
 }
 
 bool ttl_ble_is_connected(void) { return ttl_iso_connected; }
-int64_t ttl_ble_latest_packet_datetime(void) { return ttl_iso_last_datetime; }
+int64_t ttl_ble_latest_packet_datetime_ms(void) {
+  return ttl_iso_last_datetime;
+}

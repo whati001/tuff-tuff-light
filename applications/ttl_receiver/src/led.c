@@ -34,23 +34,20 @@ struct ttl_pwm_led_t {
 enum ttl_pwm_led_idx {
   TTL_PWM_IDX_BREAK = 0,
   TTL_PWM_IDX_DIRPOINTER,
-  TTL_PWM_IDX_REVERSE,
+  // TTL_PWM_IDX_REVERSE, // not supported yet
   TTL_PWM_IDX_DRIVE,
 };
 
 static struct ttl_pwm_led_t ttl_pwm_leds[] = {
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_red)),
+    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_break)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
      .pwm_duty = TTL_PWM_LED_DUTY(100)},
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_yellow)),
+    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_turn)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
      .pwm_duty = TTL_PWM_LED_DUTY(100)},
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_white)),
+    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_drive)),
      .pwm_periode = TTL_PWM_LED_PERIODE,
-     .pwm_duty = TTL_PWM_LED_DUTY(90)},
-    {.pwm = PWM_DT_SPEC_GET(DT_NODELABEL(pwm_red)),
-     .pwm_periode = TTL_PWM_LED_PERIODE,
-     .pwm_duty = TTL_PWM_LED_DUTY(30)},
+     .pwm_duty = TTL_PWM_LED_DUTY(100)},
 };
 
 /*
@@ -118,9 +115,9 @@ static int ttl_led_loop() {
     else if (state.parts.bits.breaks) {
       LOG_INF("Enable BREAK LIGHT");
       ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_BREAK]);
-    } else if (state.parts.bits.reverse) {
-      LOG_INF("Enable REVERSE LIGHT");
-      ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_REVERSE]);
+      // } else if (state.parts.bits.reverse) {
+      //   LOG_INF("Enable REVERSE LIGHT");
+      //   ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_REVERSE]);
     } else if (state.parts.bits.ldrive) {
       LOG_INF("Enable DRIVE LIGHT");
       ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DRIVE]);

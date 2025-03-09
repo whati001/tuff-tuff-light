@@ -12,7 +12,7 @@ config ISO_ALIGN_PRINT_INTERVALS
 	  This may be needed if report printouts are to be synchronized between
 	  the iso_broadcast sample and the iso_receive sample.
 
-config TTL_SHUTDOWN_TIMEOUT
+config TTL_SHUTDOWN_TIMEOUT_SEC
 	int "Shutdown timeout in seconds"
 	default 600
 	help

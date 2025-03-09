@@ -1,4 +1,5 @@
 
+#include <stdint.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/kernel.h>
@@ -6,7 +7,6 @@
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/reboot.h>
 
-#include "accel.h"
 #include "ble.h"
 #include "led.h"
 #include "ttl.h"
@@ -43,16 +43,10 @@ static int ttl_power_down() {
   // stop all components
   ttl_ble_terminate();
   ttl_led_terminate();
-  
+  LOG_INF("Shutting down the system");
+
   // wait some time before shuting down the system
   k_msleep(2000);
-
-  // initiate accel interrupt for wakeup
-  err = ttl_accel_init();
-  if (TTL_OK != err) {
-    LOG_ERR("Failed to initialize the TTLight ACCEL stack\n");
-    return TTL_ERR;
-  }
 
   // overwrite gpio interrupt pin config to be a user wakeup pin
   err = gpio_pin_configure_dt(&reboot_pin, GPIO_INPUT);
@@ -77,8 +71,8 @@ static int ttl_power_down() {
  */
 int main(void) {
   ttl_err_t err = 0;
-  int64_t last_packet_time;
-  int64_t elapsed_time;
+  int64_t last_packet_time_ms;
+  int64_t elapsed_time_ms;
 
   LOG_INF("Starting TTLight Controller\n");
 
@@ -113,11 +107,12 @@ int main(void) {
 
 exit:
   while (1) {
-    last_packet_time = ttl_ble_latest_packet_datetime();
-    elapsed_time = k_uptime_delta(&last_packet_time);
-    LOG_INF("Elapsed time: %lld", elapsed_time);
+    last_packet_time_ms = ttl_ble_latest_packet_datetime_ms();
+    elapsed_time_ms = k_uptime_delta(&last_packet_time_ms);
+    LOG_INF("Elapsed time(ms): %lld", elapsed_time_ms);
     k_msleep(1000);
-    if (elapsed_time >= (CONFIG_TTL_SHUTDOWN_TIMEOUT * 1000)) {
+
+    if (elapsed_time_ms > (CONFIG_TTL_SHUTDOWN_TIMEOUT_SEC * 1000)) {
       err = ttl_power_down();
       if (TTL_OK != err) {
         LOG_ERR("Failed to shutdown, let's force a restart of the board");
