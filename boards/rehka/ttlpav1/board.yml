@@ -1,0 +1,6 @@
+board:
+  name: ttlpav1
+  full_name: TTL nrf52840 fem module v1
+  vendor: rehka
+  socs:
+  - name: nrf52840

@@ -1,0 +1,8 @@
+# TTL Sender PA v1 board configuration
+
+if BOARD_TTLV1
+
+config BT_CTLR
+	default BT
+
+endif # BOARD_TTLV1

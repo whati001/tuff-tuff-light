@@ -1,6 +1,6 @@
 board:
-  name: ttlpav1
-  full_name: TTL Sender PA v1
+  name: ttlv1
+  full_name: TTL nrf52840 module v1
   vendor: rehka
   socs:
   - name: nrf52840
