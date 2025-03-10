@@ -35,6 +35,7 @@ static bool ttl_iso_connected;
                    BT_GAP_SCAN_FAST_INTERVAL, BT_GAP_SCAN_FAST_WINDOW)
 
 #define PA_RETRY_COUNT 6
+#define BIS_ISO_CHAN_COUNT 1
 
 static bool per_adv_found;
 static bool per_adv_lost;
@@ -48,8 +49,8 @@ static K_SEM_DEFINE(sem_per_adv, 0, 1);
 static K_SEM_DEFINE(sem_per_sync, 0, 1);
 static K_SEM_DEFINE(sem_per_sync_lost, 0, 1);
 static K_SEM_DEFINE(sem_per_big_info, 0, 1);
-static K_SEM_DEFINE(sem_big_sync, 0, 1);
-static K_SEM_DEFINE(sem_big_sync_lost, 0, 1);
+static K_SEM_DEFINE(sem_big_sync, 0, BIS_ISO_CHAN_COUNT);
+static K_SEM_DEFINE(sem_big_sync_lost, 0, BIS_ISO_CHAN_COUNT);
 
 static bool data_cb(struct bt_data *data, void *user_data) {
   char *name = user_data;
@@ -196,7 +197,7 @@ static struct bt_le_per_adv_sync_cb sync_callbacks = {
 static void iso_recv(struct bt_iso_chan *chan,
                      const struct bt_iso_recv_info *info, struct net_buf *buf) {
   ttl_state_t state; /* only valid if the data is a counter */
-  LOG_INF(">>> Received some data on ISO channel %p", chan);
+  // LOG_INF(">>> Received some data on ISO channel %p with size: %u", chan, buf->len);
 
   if (buf->len == sizeof(state)) {
     state.entire = sys_get_le32(buf->data);
@@ -239,12 +240,11 @@ static struct bt_iso_chan_ops iso_ops = {
     .disconnected = iso_disconnected,
 };
 
-static struct bt_iso_chan_io_qos iso_rx_qos[1];
+static struct bt_iso_chan_io_qos iso_rx_qos[BIS_ISO_CHAN_COUNT];
 
 static struct bt_iso_chan_qos bis_iso_qos[] = {
     {
         .rx = &iso_rx_qos[0],
-
     },
 };
 
@@ -259,8 +259,8 @@ static struct bt_iso_chan *bis[] = {
 
 static struct bt_iso_big_sync_param big_sync_param = {
     .bis_channels = bis,
-    .num_bis = 1,
-    .bis_bitfield = (BIT_MASK(1) << 1),
+    .num_bis = BIS_ISO_CHAN_COUNT,
+    .bis_bitfield = (BIT_MASK(BIS_ISO_CHAN_COUNT)),
     .mse = BT_ISO_SYNC_MSE_ANY, /* any number of subevents */
     .sync_timeout = 100,        /* in 10 ms units */
 };
@@ -273,6 +273,7 @@ static void reset_semaphores(void) {
   k_sem_reset(&sem_big_sync);
   k_sem_reset(&sem_big_sync_lost);
 }
+
 /**
  * @brief Main TTL BLE thread loop
  */

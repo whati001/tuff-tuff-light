@@ -23,56 +23,30 @@
 / {
 	pwmleds {
 		compatible = "pwm-leds";
-		pwm_red: pwm_led0 {
+		pwm_drive: pwm_led0 {
 			pwms = <&pwm0 0 PWM_SEC(1) PWM_POLARITY_NORMAL>;
 		};
-		pwm_yellow: pwm_led1 {
+		pwm_break: pwm_led1 {
 			pwms = <&pwm0 1 PWM_SEC(1) PWM_POLARITY_NORMAL>;
 		};
-		pwm_white: pwm_led2 {
+		pwm_turn: pwm_led2 {
 			pwms = <&pwm0 2 PWM_SEC(1) PWM_POLARITY_NORMAL>;
 		};
 	};
-};
+};	
+
 
 &pwm0_default {
 	// use GPIO pins which are also available on the DONGLE
 	group1 {
 		psels = 
-			<NRF_PSEL(PWM_OUT0, 1, 10)>, 
-			<NRF_PSEL(PWM_OUT1, 1, 13)>,
-			<NRF_PSEL(PWM_OUT2, 1, 15)>;
+			<NRF_PSEL(PWM_OUT0, 0, 13)>, 
+			<NRF_PSEL(PWM_OUT1, 0, 14)>,
+			<NRF_PSEL(PWM_OUT2, 0, 15)>;
 		
 		// remove nordic,invert property,
 		// otherwise the GPIO will be high if the PWM is disconnected
-		/delete-property/ nordic,invert;
-	};
-};
-
-/* 
- * ADXL345 on I2C
- * We use the alternative 7-bit I2C address: 0x53
- * Furthermore, we use the following pins for I2C
- *   - SCL: P0.22
- *   - SDA: P0.25 -> we can not use P0.24 because this pin is fixed wired to the QSPI flash
-*/
-&i2c0 {
-	status = "okay";
-	clock-frequency = <I2C_BITRATE_STANDARD>;
-	accelerometer: adxl345@53 {
-		compatible="adi,adxl345";
-		reg=<0x53>;
-		frequency=<100>;
-		range=<16>;
-		fifo=<0>;
-		int1-gpios=<&gpio1 0 GPIO_ACTIVE_HIGH>;
-	};
-};
-
-&i2c0_default {
-	group1 {
-		psels = <NRF_PSEL(TWIM_SCL, 0, 25)>,
-				<NRF_PSEL(TWIM_SDA, 0, 24)>;
+		// /delete-property/ nordic,invert;
 	};
 };
 
@@ -82,6 +56,11 @@
 		reboot_pin: reboot_pin {
 			gpios = < &gpio1 0 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
 			label = "Push button switch 0";
+		};
+
+		booster_pin: booster_pin {
+			gpios = < &gpio0 17 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+			label = "Enable booster";
 		};
 	};
 };

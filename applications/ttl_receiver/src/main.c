@@ -14,10 +14,16 @@
 LOG_MODULE_REGISTER(ttl_main, LOG_LEVEL_INF);
 
 /**
- * @brief Reset pin, used by the accelerometer to wakeup the boot
+ * @brief Reset pin, used by spring resistor to wakeup the boot
  */
 static const struct gpio_dt_spec reboot_pin =
     GPIO_DT_SPEC_GET(DT_NODELABEL(reboot_pin), gpios);
+
+/**
+ * @brief Reset pin, used by the accelerometer to wakeup the boot
+ */
+static const struct gpio_dt_spec booster_enable_pin =
+    GPIO_DT_SPEC_GET(DT_NODELABEL(booster_pin), gpios);
 
 /**
  * @brief Overwrite ASSERT handler
@@ -44,6 +50,13 @@ static int ttl_power_down() {
   ttl_ble_terminate();
   ttl_led_terminate();
   LOG_INF("Shutting down the system");
+
+  // disable booster for leds
+  err = gpio_pin_set_dt(&booster_enable_pin, 0);
+  if (err < 0) {
+    LOG_ERR("Could not enable booster GPIO (%d)\n", err);
+    return TTL_ERR;
+  }
 
   // wait some time before shuting down the system
   k_msleep(2000);
@@ -104,6 +117,18 @@ int main(void) {
     return TTL_ERR;
   }
   LOG_INF("Started TTLight BLE stack properly");
+
+  // enable booster for leds
+  err = gpio_pin_configure_dt(&booster_enable_pin, GPIO_OUTPUT);
+  if (err < 0) {
+    LOG_ERR("Could not configure booster GPIO (%d)\n", err);
+    return TTL_ERR;
+  }
+  err = gpio_pin_set_dt(&booster_enable_pin, 1);
+  if (err < 0) {
+    LOG_ERR("Could not enable booster GPIO (%d)\n", err);
+    return TTL_ERR;
+  }
 
 exit:
   while (1) {
