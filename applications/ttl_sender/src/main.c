@@ -9,30 +9,29 @@
 LOG_MODULE_REGISTER(ttl_main, LOG_LEVEL_INF);
 
 int main(void) {
-  int err = 0;
-  LOG_INF("Starting TTLight Controller\n");
+  ttl_ret_t ret = 0;
+  LOG_INF("Initiating TTLight Controller\n");
 
-  err = ttl_ble_init();
-  if (TTL_OK != err) {
-    LOG_ERR("Failed to initialize the TTLight BLE stack\n");
-    return TTL_ERR;
+  ret = ttl_ble_init();
+  if (TTL_OK != ret) {
+    LOG_ERR("Failed to initialize the TTLight BLE stack");
+    return ret;
   }
 
-  err = ttl_gpio_init();
-  if (TTL_OK != err) {
-    LOG_ERR("Failed to initialize the TTLight GPIO stack\n");
-    return TTL_ERR;
+  ret = ttl_gpio_init();
+  if (TTL_OK != ret) {
+    LOG_ERR("Failed to initialize the TTLight GPIO stack");
+    return ret;
   }
-  ttl_gpio_register_cb(ttl_ble_upd_status);
 
-  err = ttl_gpio_run();
-  if (TTL_OK != err) {
+  ret = ttl_gpio_run();
+  if (TTL_OK != ret) {
     LOG_ERR("Failed to start continuously TTLState sampling");
     return TTL_ERR;
   }
 
-  err = ttl_ble_run();
-  if (TTL_OK != err) {
+  ret = ttl_ble_run();
+  if (TTL_OK != ret) {
     LOG_ERR(
         "Failed to start continuously sending current TTL state via    BLE\n");
     return TTL_ERR;

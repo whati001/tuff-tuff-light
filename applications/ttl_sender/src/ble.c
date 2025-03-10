@@ -10,13 +10,14 @@ LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_DBG);
 #define BUF_ALLOC_TIMEOUT_MS (10)
 #define BIG_TERMINATE_TIMEOUT_US (60 * USEC_PER_SEC)
 #define BIG_SDU_INTERVAL_US (10000)
+#define BIS_ISO_CHAN_COUNT 1
 
-NET_BUF_POOL_FIXED_DEFINE(bis_tx_pool, 1,
+NET_BUF_POOL_FIXED_DEFINE(bis_tx_pool, BIS_ISO_CHAN_COUNT,
                           BT_ISO_SDU_BUF_SIZE(CONFIG_BT_ISO_TX_MTU),
                           CONFIG_BT_CONN_TX_USER_DATA_SIZE, NULL);
 
-static K_SEM_DEFINE(sem_big_cmplt, 0, 1);
-static K_SEM_DEFINE(sem_big_term, 0, 1);
+static K_SEM_DEFINE(sem_big_cmplt, 0, BIS_ISO_CHAN_COUNT);
+static K_SEM_DEFINE(sem_big_term, 0, BIS_ISO_CHAN_COUNT);
 static K_SEM_DEFINE(sem_iso_data, CONFIG_BT_ISO_TX_BUF_COUNT,
                     CONFIG_BT_ISO_TX_BUF_COUNT);
 
@@ -51,8 +52,8 @@ static struct bt_iso_chan_ops iso_ops = {
 
 static struct bt_iso_chan_io_qos iso_tx_qos = {
     .sdu = sizeof(uint32_t), /* bytes */
-    .rtn = 2,
-    .phy = BT_GAP_LE_PHY_1M,
+    .rtn = 1,
+    .phy = BT_GAP_LE_PHY_2M,
 };
 
 static struct bt_iso_chan_qos bis_iso_qos = {
@@ -67,12 +68,17 @@ static struct bt_iso_chan bis_iso_chan = {
 static struct bt_iso_chan *bis[] = {&bis_iso_chan};
 
 static struct bt_iso_big_create_param big_create_param = {
-    .num_bis = 1,
+    .num_bis = BIS_ISO_CHAN_COUNT,
     .bis_channels = bis,
     .interval = BIG_SDU_INTERVAL_US, /* in microseconds */
     .latency = 10,                   /* in milliseconds */
     .packing = 0,                    /* 0 - sequential, 1 - interleaved */
     .framing = 0,                    /* 0 - unframed, 1 - framed */
+};
+
+static const struct bt_data ad[] = {
+    BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME,
+            sizeof(CONFIG_BT_DEVICE_NAME) - 1),
 };
 
 static int ttl_ble_enable() {
@@ -88,11 +94,18 @@ static int ttl_ble_enable() {
     LOG_ERR("Bluetooth init failed (err %d)", err);
     return TTL_ERR;
   }
-  // err = bt_le_ext_adv_create(BT_LE_EXT_ADV_CODED_NCONN_NAME, NULL, &adv);
-  /* Create a non-connectable non-scannable advertising set */
+
+  /* Create a non-connectable advertising set */
   err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN, NULL, &adv);
   if (err) {
     LOG_ERR("Failed to create advertising set (err %d)", err);
+    return TTL_ERR;
+  }
+
+  /* Set advertising data to have complete local name set */
+  err = bt_le_ext_adv_set_data(adv, ad, ARRAY_SIZE(ad), NULL, 0);
+  if (err) {
+    LOG_ERR("Failed to set advertising data (err %d)\n", err);
     return TTL_ERR;
   }
 
@@ -142,13 +155,13 @@ static int ttl_ble_broadcast() {
 
     buf = net_buf_alloc(&bis_tx_pool, K_MSEC(BUF_ALLOC_TIMEOUT_MS));
     if (!buf) {
-      printk("Data buffer allocate timeout on channel");
+      LOG_INF("Data buffer allocate timeout on channel");
       return 0;
     }
 
     ret = k_sem_take(&sem_iso_data, K_FOREVER);
     if (ret) {
-      printk("k_sem_take for ISO data sent failed\n");
+      LOG_INF("k_sem_take for ISO data sent failed\n");
       net_buf_unref(buf);
       return 0;
     }
@@ -159,10 +172,11 @@ static int ttl_ble_broadcast() {
     sys_put_le32(ttl_state.entire, iso_data);
     k_sem_give(&sem_ttl_state);
     net_buf_add_mem(buf, iso_data, sizeof(iso_data));
+    // LOG_INF("Broadcasting data with len: %u", buf->len);
 
     ret = bt_iso_chan_send(&bis_iso_chan, buf, seq_num);
     if (ret < 0) {
-      printk("Unable to broadcast data on channel with error code: %d", ret);
+      LOG_INF("Unable to broadcast data on channel with error code: %d", ret);
       net_buf_unref(buf);
       return 0;
     }
