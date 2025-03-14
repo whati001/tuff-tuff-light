@@ -41,6 +41,7 @@
  *
  * They have not incooperated an official nrf21540 FEM, so let's use as `generic-fem-two-ctrl-pins`
  */
+ /*
 / {
   nrf_radio_fem: holyiot_dongle_fem {
     compatible = "generic-fem-two-ctrl-pins";
@@ -56,3 +57,4 @@
 &radio {
   fem = <&nrf_radio_fem>;
 };
+*/

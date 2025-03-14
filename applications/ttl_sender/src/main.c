@@ -9,7 +9,7 @@
 LOG_MODULE_REGISTER(ttl_main, LOG_LEVEL_INF);
 
 int main(void) {
-  ttl_ret_t ret = 0;
+  ttl_err_t ret = 0;
   LOG_INF("Initiating TTLight Controller\n");
 
   ret = ttl_ble_init();
@@ -23,6 +23,7 @@ int main(void) {
     LOG_ERR("Failed to initialize the TTLight GPIO stack");
     return ret;
   }
+  ttl_gpio_register_cb(ttl_ble_upd_status);
 
   ret = ttl_gpio_run();
   if (TTL_OK != ret) {

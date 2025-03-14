@@ -4,6 +4,7 @@
 #include <zephyr/sys/byteorder.h>
 
 #include "ttl.h"
+#include "zephyr/kernel.h"
 
 LOG_MODULE_REGISTER(ttl_ble, LOG_LEVEL_DBG);
 
@@ -52,8 +53,8 @@ static struct bt_iso_chan_ops iso_ops = {
 
 static struct bt_iso_chan_io_qos iso_tx_qos = {
     .sdu = sizeof(uint32_t), /* bytes */
-    .rtn = 1,
-    .phy = BT_GAP_LE_PHY_2M,
+    .rtn = 2,
+    .phy = BT_GAP_LE_PHY_1M,
 };
 
 static struct bt_iso_chan_qos bis_iso_qos = {
@@ -153,7 +154,7 @@ static int ttl_ble_broadcast() {
     struct net_buf *buf;
     int ret;
 
-    buf = net_buf_alloc(&bis_tx_pool, K_MSEC(BUF_ALLOC_TIMEOUT_MS));
+    buf = net_buf_alloc(&bis_tx_pool, K_FOREVER);
     if (!buf) {
       LOG_INF("Data buffer allocate timeout on channel");
       return 0;
