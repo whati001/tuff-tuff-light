@@ -107,7 +107,7 @@ static int ttl_led_loop() {
     ttl_led_disconnect_all();
 
     // TODO: add logic to differentiate if this is a right or left light
-    if (state.parts.bits.lturn) {
+    if (state.parts.bits.rturn) {
       LOG_INF("Enable DIRECTION LIGHT");
       ttl_led_connect(&ttl_pwm_leds[TTL_PWM_IDX_DIRPOINTER]);
     }
