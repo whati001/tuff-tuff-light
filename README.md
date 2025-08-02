@@ -9,6 +9,10 @@ The choose design enables seamless connectivity without complicated pairing proc
 ![Trailer Light Receiver Battery](./assets/images/trailer_receiver_battery.jpg)
 ![Trailer Light Sender Internal](./assets/images/trailer_sender_internal.jpg)
 
+[![TTL Demo](http://img.youtube.com/vi/t9BFipJ9V28/0.jpg)](http://www.youtube.com/shorts/t9BFipJ9V28 "TTL Demonstration")
+
+[![TTL Wakeup](http://img.youtube.com/vi/I9mE4fKHAj8/0.jpg)](http://www.youtube.com/watch?v=I9mE4fKHAj8 "TTL Wakeup")
+
 ## ✨ Features
 
 - 🔋 Battery-powered light modules (18650 x 4)
